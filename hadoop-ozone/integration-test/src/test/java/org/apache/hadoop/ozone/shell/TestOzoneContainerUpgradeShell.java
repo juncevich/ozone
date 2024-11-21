@@ -33,7 +33,6 @@ import org.apache.hadoop.hdds.utils.HddsServerUtil;
 import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.hadoop.hdds.utils.db.CodecTestUtil;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedRocksObjectMetrics;
-import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.ozone.HddsDatanodeService;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.OzoneTestUtils;
@@ -43,6 +42,7 @@ import org.apache.hadoop.ozone.client.OzoneClientFactory;
 import org.apache.hadoop.ozone.container.common.helpers.ContainerUtils;
 import org.apache.hadoop.ozone.container.common.utils.ContainerCache;
 import org.apache.hadoop.ozone.container.common.utils.DatanodeStoreCache;
+import org.apache.hadoop.ozone.metrics.OzoneMetricsSystem;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.junit.jupiter.api.BeforeAll;
@@ -222,7 +222,7 @@ public class TestOzoneContainerUpgradeShell {
         for (OzoneConfiguration dnConfig : dnConfigs) {
           ContainerCache.getInstance(dnConfig).shutdownCache();
         }
-        DefaultMetricsSystem.shutdown();
+        OzoneMetricsSystem.shutdown();
         ManagedRocksObjectMetrics.INSTANCE.assertNoLeaks();
         CodecTestUtil.gc();
       }

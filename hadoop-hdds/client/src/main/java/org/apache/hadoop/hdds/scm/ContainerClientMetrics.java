@@ -23,13 +23,13 @@ import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.metrics2.annotation.Metric;
 import org.apache.hadoop.metrics2.annotation.Metrics;
-import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.metrics2.lib.Interns;
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
 import org.apache.hadoop.metrics2.lib.MutableCounterLong;
 import org.apache.hadoop.metrics2.lib.MutableQuantiles;
-import org.apache.hadoop.metrics2.lib.MutableRate;
 import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.metrics.OzoneMetricsSystem;
+import org.apache.hadoop.ozone.metrics.ReadWriteLockMutableRate;
 import org.apache.hadoop.ozone.util.MetricUtil;
 
 import java.util.Map;
@@ -56,13 +56,13 @@ public final class ContainerClientMetrics {
   private MutableCounterLong totalWriteChunkBytes;
 
   @Metric
-  private MutableRate hsyncSynchronizedWorkNs;
+  private ReadWriteLockMutableRate hsyncSynchronizedWorkNs;
   @Metric
-  private MutableRate hsyncSendWriteChunkNs;
+  private ReadWriteLockMutableRate hsyncSendWriteChunkNs;
   @Metric
-  private MutableRate hsyncWaitForFlushNs;
+  private ReadWriteLockMutableRate hsyncWaitForFlushNs;
   @Metric
-  private MutableRate hsyncWatchForCommitNs;
+  private ReadWriteLockMutableRate hsyncWatchForCommitNs;
   @Metric
   private MutableCounterLong writeChunksDuringWrite;
   @Metric
@@ -85,7 +85,7 @@ public final class ContainerClientMetrics {
   public static synchronized ContainerClientMetrics acquire() {
     if (instance == null) {
       instanceCount++;
-      instance = DefaultMetricsSystem.instance().register(
+      instance = OzoneMetricsSystem.instance().register(
           SOURCE_NAME + instanceCount,
           "Ozone Client Metrics", new ContainerClientMetrics());
     }
@@ -100,7 +100,7 @@ public final class ContainerClientMetrics {
     referenceCount--;
     if (referenceCount == 0) {
       instance.stop();
-      DefaultMetricsSystem.instance().unregisterSource(
+      OzoneMetricsSystem.instance().unregisterSource(
           SOURCE_NAME + instanceCount);
       instance = null;
     }
@@ -279,19 +279,19 @@ public final class ContainerClientMetrics {
     return writeChunksCallsByLeaders;
   }
 
-  public MutableRate getHsyncSynchronizedWorkNs() {
+  public ReadWriteLockMutableRate getHsyncSynchronizedWorkNs() {
     return hsyncSynchronizedWorkNs;
   }
 
-  public MutableRate getHsyncSendWriteChunkNs() {
+  public ReadWriteLockMutableRate getHsyncSendWriteChunkNs() {
     return hsyncSendWriteChunkNs;
   }
 
-  public MutableRate getHsyncWaitForFlushNs() {
+  public ReadWriteLockMutableRate getHsyncWaitForFlushNs() {
     return hsyncWaitForFlushNs;
   }
 
-  public MutableRate getHsyncWatchForCommitNs() {
+  public ReadWriteLockMutableRate getHsyncWatchForCommitNs() {
     return hsyncWatchForCommitNs;
   }
 

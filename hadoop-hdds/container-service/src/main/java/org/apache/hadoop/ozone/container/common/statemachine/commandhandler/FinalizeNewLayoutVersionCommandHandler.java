@@ -21,7 +21,7 @@ import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolPro
 import org.apache.hadoop.hdds.protocol.proto
     .StorageContainerDatanodeProtocolProtos.SCMCommandProto;
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
-import org.apache.hadoop.metrics2.lib.MutableRate;
+import org.apache.hadoop.ozone.metrics.ReadWriteLockMutableRate;
 import org.apache.hadoop.ozone.container.common.statemachine.DatanodeStateMachine;
 import org.apache.hadoop.ozone.container.common.statemachine
     .SCMConnectionManager;
@@ -44,15 +44,14 @@ public class FinalizeNewLayoutVersionCommandHandler implements CommandHandler {
       LoggerFactory.getLogger(FinalizeNewLayoutVersionCommandHandler.class);
 
   private AtomicLong invocationCount = new AtomicLong(0);
-  private final MutableRate opsLatencyMs;
-
+  private final ReadWriteLockMutableRate opsLatencyMs;
+  private final MetricsRegistry registry = new MetricsRegistry(
+      FinalizeNewLayoutVersionCommandHandler.class.getSimpleName());
   /**
    * Constructs a FinalizeNewLayoutVersionCommandHandler.
    */
   public FinalizeNewLayoutVersionCommandHandler() {
-    MetricsRegistry registry = new MetricsRegistry(
-        FinalizeNewLayoutVersionCommandHandler.class.getSimpleName());
-    this.opsLatencyMs = registry.newRate(SCMCommandProto.Type.finalizeNewLayoutVersionCommand + "Ms");
+    this.opsLatencyMs = new ReadWriteLockMutableRate(SCMCommandProto.Type.finalizeNewLayoutVersionCommand + "Ms");
   }
 
   /**

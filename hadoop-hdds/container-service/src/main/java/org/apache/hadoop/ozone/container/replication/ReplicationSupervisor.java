@@ -44,7 +44,7 @@ import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ReplicationCommandPriority;
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
-import org.apache.hadoop.metrics2.lib.MutableRate;
+import org.apache.hadoop.ozone.metrics.ReadWriteLockMutableRate;
 import org.apache.hadoop.ozone.container.common.statemachine.DatanodeConfiguration;
 import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
 import org.apache.hadoop.ozone.container.replication.ReplicationServer.ReplicationConfig;
@@ -83,7 +83,7 @@ public final class ReplicationSupervisor {
   private final Map<String, AtomicLong> queuedCounter = new ConcurrentHashMap<>();
 
   private final MetricsRegistry registry;
-  private final Map<String, MutableRate> opsLatencyMs = new ConcurrentHashMap<>();
+  private final Map<String, ReadWriteLockMutableRate> opsLatencyMs = new ConcurrentHashMap<>();
 
   private static final Map<String, String> METRICS_MAP;
 
@@ -249,8 +249,8 @@ public final class ReplicationSupervisor {
           timeoutCounter.put(task.getMetricName(), new AtomicLong(0));
           skippedCounter.put(task.getMetricName(), new AtomicLong(0));
           queuedCounter.put(task.getMetricName(), new AtomicLong(0));
-          opsLatencyMs.put(task.getMetricName(), registry.newRate(
-              task.getClass().getSimpleName() + "Ms"));
+          opsLatencyMs.put(task.getMetricName(), new ReadWriteLockMutableRate(
+              task.getClass().getSimpleName() + "Ms", task.getClass().getSimpleName() + "Ms"));
           METRICS_MAP.put(task.getMetricName(), task.getMetricDescriptionSegment());
         }
       }
@@ -536,12 +536,12 @@ public final class ReplicationSupervisor {
   }
 
   public long getReplicationRequestAvgTime(String metricsName) {
-    MutableRate rate = opsLatencyMs.get(metricsName);
+    ReadWriteLockMutableRate rate = opsLatencyMs.get(metricsName);
     return rate != null ? (long) rate.lastStat().mean() : 0;
   }
 
   public long getReplicationRequestTotalTime(String metricsName) {
-    MutableRate rate = opsLatencyMs.get(metricsName);
+    ReadWriteLockMutableRate rate = opsLatencyMs.get(metricsName);
     return rate != null ? (long) rate.lastStat().total() : 0;
   }
 }

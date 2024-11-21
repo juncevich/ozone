@@ -29,10 +29,10 @@ import org.apache.hadoop.metrics2.lib.Interns;
 import org.apache.hadoop.metrics2.lib.MutableCounterLong;
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
 import org.apache.hadoop.metrics2.lib.MutableQuantiles;
-import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
-import org.apache.hadoop.metrics2.lib.MutableRate;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.metrics.OzoneMetricsSystem;
+import org.apache.hadoop.ozone.metrics.ReadWriteLockMutableRate;
 import org.apache.hadoop.ozone.util.MetricUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,7 +92,7 @@ public class GrpcMetrics implements MetricsSource {
    */
   public static synchronized GrpcMetrics create(Configuration conf) {
     GrpcMetrics metrics = new GrpcMetrics(conf);
-    return DefaultMetricsSystem.instance().register(SOURCE_NAME,
+    return OzoneMetricsSystem.instance().register(SOURCE_NAME,
         "Metrics for using gRPC", metrics);
   }
 
@@ -100,7 +100,7 @@ public class GrpcMetrics implements MetricsSource {
    * Unregister the metrics instance.
    */
   public void unRegister() {
-    DefaultMetricsSystem.instance().unregisterSource(SOURCE_NAME);
+    OzoneMetricsSystem.instance().unregisterSource(SOURCE_NAME);
     MetricUtil.stop(grpcProcessingTimeMillisQuantiles);
     MetricUtil.stop(grpcQueueTimeMillisQuantiles);
   }
@@ -125,14 +125,14 @@ public class GrpcMetrics implements MetricsSource {
   private MutableCounterLong unknownMessagesReceived;
 
   @Metric("Queue time")
-  private MutableRate grpcQueueTime;
+  private ReadWriteLockMutableRate grpcQueueTime;
 
   // There should be no getter method to avoid
   // exposing internal representation. FindBugs error raised.
   private MutableQuantiles[] grpcQueueTimeMillisQuantiles;
 
   @Metric("Processsing time")
-  private MutableRate grpcProcessingTime;
+  private ReadWriteLockMutableRate grpcProcessingTime;
 
   // There should be no getter method to avoid
   // exposing internal representation. FindBugs error raised.
@@ -203,11 +203,11 @@ public class GrpcMetrics implements MetricsSource {
     return unknownMessagesReceived.value();
   }
   
-  MutableRate getGrpcQueueTime() {
+  ReadWriteLockMutableRate getGrpcQueueTime() {
     return grpcQueueTime;
   }
 
-  MutableRate getGrpcProcessingTime() {
+  ReadWriteLockMutableRate getGrpcProcessingTime() {
     return grpcProcessingTime;
   }
 

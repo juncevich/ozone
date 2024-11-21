@@ -21,11 +21,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.hadoop.ozone.metrics.OzoneMetricsSystem;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,13 +51,13 @@ public class TestEventQueue {
 
   @BeforeEach
   public void startEventQueue() {
-    DefaultMetricsSystem.initialize(getClass().getSimpleName());
+    OzoneMetricsSystem.initialize(getClass().getSimpleName());
     queue = new EventQueue();
   }
 
   @AfterEach
   public void stopEventQueue() {
-    DefaultMetricsSystem.shutdown();
+    OzoneMetricsSystem.shutdown();
     queue.close();
   }
 

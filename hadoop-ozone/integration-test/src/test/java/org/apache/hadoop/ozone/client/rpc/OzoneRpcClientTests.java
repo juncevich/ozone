@@ -247,7 +247,6 @@ abstract class OzoneRpcClientTests extends OzoneTestBase {
     //  for testZReadKeyWithUnhealthyContainerReplica.
     conf.set("ozone.scm.stale.node.interval", "10s");
     conf.setInt(OZONE_SCM_RATIS_PIPELINE_LIMIT, 10);
-
     ClientConfigForTesting.newBuilder(StorageUnit.MB)
         .setDataStreamMinPacketSize(1)
         .applyTo(conf);

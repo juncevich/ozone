@@ -25,11 +25,12 @@ import org.apache.hadoop.metrics2.MetricsSource;
 import org.apache.hadoop.metrics2.MetricsSystem;
 import org.apache.hadoop.metrics2.annotation.Metric;
 import org.apache.hadoop.metrics2.annotation.Metrics;
-import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
+
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
 import org.apache.hadoop.metrics2.lib.MutableCounterLong;
-import org.apache.hadoop.metrics2.lib.MutableRate;
+import org.apache.hadoop.ozone.metrics.ReadWriteLockMutableRate;
 import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.metrics.OzoneMetricsSystem;
 import org.apache.hadoop.util.Time;
 
 /**
@@ -49,9 +50,9 @@ public final class SCMPerformanceMetrics implements MetricsSource {
   @Metric(about = "Number of successful deleteKey operations")
   private MutableCounterLong deleteKeySuccess;
   @Metric(about = "Latency for deleteKey failure in nanoseconds")
-  private MutableRate deleteKeyFailureLatencyNs;
+  private ReadWriteLockMutableRate deleteKeyFailureLatencyNs;
   @Metric(about = "Latency for deleteKey success in nanoseconds")
-  private MutableRate deleteKeySuccessLatencyNs;
+  private ReadWriteLockMutableRate deleteKeySuccessLatencyNs;
 
   public SCMPerformanceMetrics() {
     this.registry = new MetricsRegistry(SOURCE_NAME);
@@ -61,14 +62,14 @@ public final class SCMPerformanceMetrics implements MetricsSource {
     if (instance != null) {
       return instance;
     }
-    MetricsSystem ms = DefaultMetricsSystem.instance();
+    MetricsSystem ms = OzoneMetricsSystem.instance();
     instance = ms.register(SOURCE_NAME, "SCM Performance Metrics",
         new SCMPerformanceMetrics());
     return instance;
   }
 
   public void unRegister() {
-    MetricsSystem ms = DefaultMetricsSystem.instance();
+    MetricsSystem ms = OzoneMetricsSystem.instance();
     ms.unregisterSource(SOURCE_NAME);
   }
 

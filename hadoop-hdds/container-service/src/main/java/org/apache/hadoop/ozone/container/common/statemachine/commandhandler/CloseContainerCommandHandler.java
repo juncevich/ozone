@@ -32,7 +32,7 @@ import org.apache.hadoop.hdds.protocol.proto
     .StorageContainerDatanodeProtocolProtos.CloseContainerCommandProto;
 import org.apache.hadoop.hdds.tracing.TracingUtil;
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
-import org.apache.hadoop.metrics2.lib.MutableRate;
+import org.apache.hadoop.ozone.metrics.ReadWriteLockMutableRate;
 import org.apache.hadoop.ozone.container.common.interfaces.Container;
 import org.apache.hadoop.ozone.container.common.statemachine
     .SCMConnectionManager;
@@ -60,8 +60,9 @@ public class CloseContainerCommandHandler implements CommandHandler {
   private final AtomicLong invocationCount = new AtomicLong(0);
   private final AtomicInteger queuedCount = new AtomicInteger(0);
   private final ThreadPoolExecutor executor;
-  private final MutableRate opsLatencyMs;
-
+  private final ReadWriteLockMutableRate opsLatencyMs;
+  private final MetricsRegistry registry = new MetricsRegistry(
+      CloseContainerCommandHandler.class.getSimpleName());
   /**
    * Constructs a close container command handler.
    */
@@ -74,9 +75,7 @@ public class CloseContainerCommandHandler implements CommandHandler {
         new ThreadFactoryBuilder()
             .setNameFormat(threadNamePrefix + "CloseContainerThread-%d")
             .build());
-    MetricsRegistry registry = new MetricsRegistry(
-        CloseContainerCommandHandler.class.getSimpleName());
-    this.opsLatencyMs = registry.newRate(SCMCommandProto.Type.closeContainerCommand + "Ms");
+    this.opsLatencyMs = new ReadWriteLockMutableRate(SCMCommandProto.Type.closeContainerCommand + "Ms");
   }
 
   /**

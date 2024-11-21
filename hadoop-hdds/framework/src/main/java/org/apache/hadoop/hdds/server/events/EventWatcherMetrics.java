@@ -19,7 +19,7 @@ package org.apache.hadoop.hdds.server.events;
 
 import org.apache.hadoop.metrics2.annotation.Metric;
 import org.apache.hadoop.metrics2.lib.MutableCounterLong;
-import org.apache.hadoop.metrics2.lib.MutableRate;
+import org.apache.hadoop.ozone.metrics.ReadWriteLockMutableRate;
 
 /**
  * Metrics for any event watcher.
@@ -36,7 +36,7 @@ public class EventWatcherMetrics {
   private MutableCounterLong completedEvents;
 
   @Metric
-  private MutableRate completionTime;
+  private ReadWriteLockMutableRate completionTime;
 
   public void incrementTrackedEvents() {
     trackedEvents.incr();
@@ -66,7 +66,7 @@ public class EventWatcherMetrics {
     return completedEvents;
   }
 
-  MutableRate getCompletionTime() {
+  ReadWriteLockMutableRate getCompletionTime() {
     return completionTime;
   }
 }

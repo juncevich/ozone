@@ -25,7 +25,7 @@ import org.apache.hadoop.hdds.ratis.RatisHelper;
 import org.apache.hadoop.hdds.scm.client.HddsClientUtils;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
-import org.apache.hadoop.metrics2.lib.MutableRate;
+import org.apache.hadoop.ozone.metrics.ReadWriteLockMutableRate;
 import org.apache.hadoop.ozone.container.common.statemachine
     .SCMConnectionManager;
 import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
@@ -64,8 +64,9 @@ public class ClosePipelineCommandHandler implements CommandHandler {
   private final AtomicInteger queuedCount = new AtomicInteger(0);
   private final Executor executor;
   private final BiFunction<RaftPeer, GrpcTlsConfig, RaftClient> newRaftClient;
-  private final MutableRate opsLatencyMs;
-
+  private final ReadWriteLockMutableRate opsLatencyMs;
+  private final MetricsRegistry registry = new MetricsRegistry(
+      ClosePipelineCommandHandler.class.getSimpleName());
   /**
    * Constructs a closePipelineCommand handler.
    */
@@ -82,9 +83,7 @@ public class ClosePipelineCommandHandler implements CommandHandler {
       Executor executor) {
     this.newRaftClient = newRaftClient;
     this.executor = executor;
-    MetricsRegistry registry = new MetricsRegistry(
-        ClosePipelineCommandHandler.class.getSimpleName());
-    this.opsLatencyMs = registry.newRate(SCMCommandProto.Type.closePipelineCommand + "Ms");
+    this.opsLatencyMs = new ReadWriteLockMutableRate(SCMCommandProto.Type.closePipelineCommand + "Ms");
   }
 
   /**

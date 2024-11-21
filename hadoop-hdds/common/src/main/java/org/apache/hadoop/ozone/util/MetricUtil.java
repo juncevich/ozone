@@ -19,7 +19,7 @@ package org.apache.hadoop.ozone.util;
 
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
 import org.apache.hadoop.metrics2.lib.MutableQuantiles;
-import org.apache.hadoop.metrics2.lib.MutableRate;
+import org.apache.hadoop.ozone.metrics.ReadWriteLockMutableRate;
 import org.apache.hadoop.util.Time;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.apache.ratis.util.function.CheckedSupplier;
@@ -39,7 +39,7 @@ public final class MetricUtil {
   }
 
   public static <T, E extends Exception> T captureLatencyNs(
-      MutableRate metric,
+      ReadWriteLockMutableRate metric,
       CheckedSupplier<T, E> block) throws E {
     long start = Time.monotonicNowNanos();
     try {
@@ -50,7 +50,7 @@ public final class MetricUtil {
   }
 
   public static <E extends IOException> void captureLatencyNs(
-      MutableRate metric,
+      ReadWriteLockMutableRate metric,
       CheckedRunnable<E> block) throws IOException {
     long start = Time.monotonicNowNanos();
     try {

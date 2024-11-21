@@ -19,7 +19,7 @@ package org.apache.hadoop.ozone.container.common.statemachine.commandhandler;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto.Type;
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
-import org.apache.hadoop.metrics2.lib.MutableRate;
+import org.apache.hadoop.ozone.metrics.ReadWriteLockMutableRate;
 import org.apache.hadoop.ozone.container.common.statemachine.SCMConnectionManager;
 import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
 import org.apache.hadoop.ozone.container.ozoneimpl.OzoneContainer;
@@ -39,12 +39,12 @@ public class RefreshVolumeUsageCommandHandler implements CommandHandler {
       LoggerFactory.getLogger(RefreshVolumeUsageCommandHandler.class);
 
   private final AtomicInteger invocationCount = new AtomicInteger(0);
-  private final MutableRate opsLatencyMs;
+  private final ReadWriteLockMutableRate opsLatencyMs;
+  private final MetricsRegistry registry = new MetricsRegistry(
+      RefreshVolumeUsageCommandHandler.class.getSimpleName());
 
   public RefreshVolumeUsageCommandHandler() {
-    MetricsRegistry registry = new MetricsRegistry(
-        RefreshVolumeUsageCommandHandler.class.getSimpleName());
-    this.opsLatencyMs = registry.newRate(Type.refreshVolumeUsageInfo + "Ms");
+    this.opsLatencyMs = new ReadWriteLockMutableRate(Type.refreshVolumeUsageInfo + "Ms");
   }
 
   @Override

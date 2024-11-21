@@ -33,7 +33,7 @@ import org.apache.hadoop.hdds.protocol.proto
     .StorageContainerDatanodeProtocolProtos.DeletedBlocksTransaction;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
-import org.apache.hadoop.metrics2.lib.MutableRate;
+import org.apache.hadoop.ozone.metrics.ReadWriteLockMutableRate;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
 import org.apache.hadoop.ozone.container.common.helpers.BlockDeletingServiceMetrics;
 import org.apache.hadoop.ozone.container.common.helpers.ChunkInfoList;
@@ -100,7 +100,9 @@ public class DeleteBlocksCommandHandler implements CommandHandler {
   private final BlockDeletingServiceMetrics blockDeleteMetrics;
   private final long tryLockTimeoutMs;
   private final Map<String, SchemaHandler> schemaHandlers;
-  private final MutableRate opsLatencyMs;
+  private final ReadWriteLockMutableRate opsLatencyMs;
+  private final MetricsRegistry registry = new MetricsRegistry(
+      DeleteBlocksCommandHandler.class.getSimpleName());
 
   public DeleteBlocksCommandHandler(OzoneContainer container,
       ConfigurationSource conf, DatanodeConfiguration dnConf,
@@ -123,9 +125,7 @@ public class DeleteBlocksCommandHandler implements CommandHandler {
         dnConf.getBlockDeleteThreads(), threadFactory);
     this.deleteCommandQueues =
         new LinkedBlockingQueue<>(dnConf.getBlockDeleteQueueLimit());
-    MetricsRegistry registry = new MetricsRegistry(
-        DeleteBlocksCommandHandler.class.getSimpleName());
-    this.opsLatencyMs = registry.newRate(SCMCommandProto.Type.deleteBlocksCommand + "Ms");
+    this.opsLatencyMs = new ReadWriteLockMutableRate(SCMCommandProto.Type.deleteBlocksCommand + "Ms");
     long interval = dnConf.getBlockDeleteCommandWorkerInterval().toMillis();
     handlerThread = new Daemon(new DeleteCmdWorker(interval));
     handlerThread.start();

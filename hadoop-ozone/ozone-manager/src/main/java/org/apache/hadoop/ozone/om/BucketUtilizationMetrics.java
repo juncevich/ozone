@@ -25,8 +25,8 @@ import org.apache.hadoop.metrics2.MetricsInfo;
 import org.apache.hadoop.metrics2.MetricsSource;
 import org.apache.hadoop.metrics2.MetricsSystem;
 import org.apache.hadoop.metrics2.annotation.Metrics;
-import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.metrics.OzoneMetricsSystem;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 
 import java.util.Iterator;
@@ -57,7 +57,7 @@ public class BucketUtilizationMetrics implements MetricsSource {
   }
 
   public static BucketUtilizationMetrics create(OMMetadataManager metadataManager) {
-    MetricsSystem ms = DefaultMetricsSystem.instance();
+    MetricsSystem ms = OzoneMetricsSystem.instance();
     return ms.register(SOURCE, "Bucket Utilization Metrics", new BucketUtilizationMetrics(metadataManager));
   }
 
@@ -92,7 +92,7 @@ public class BucketUtilizationMetrics implements MetricsSource {
   }
 
   public void unRegister() {
-    MetricsSystem ms = DefaultMetricsSystem.instance();
+    MetricsSystem ms = OzoneMetricsSystem.instance();
     ms.unregisterSource(SOURCE);
   }
 

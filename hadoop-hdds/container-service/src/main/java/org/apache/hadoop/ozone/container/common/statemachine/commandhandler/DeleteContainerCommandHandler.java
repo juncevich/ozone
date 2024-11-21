@@ -23,7 +23,7 @@ import java.util.concurrent.RejectedExecutionException;
 import org.apache.hadoop.hdds.protocol.proto
     .StorageContainerDatanodeProtocolProtos.SCMCommandProto;
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
-import org.apache.hadoop.metrics2.lib.MutableRate;
+import org.apache.hadoop.ozone.metrics.ReadWriteLockMutableRate;
 import org.apache.hadoop.ozone.container.common.statemachine
     .SCMConnectionManager;
 import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
@@ -55,7 +55,9 @@ public class DeleteContainerCommandHandler implements CommandHandler {
   private final ThreadPoolExecutor executor;
   private final Clock clock;
   private int maxQueueSize;
-  private final MutableRate opsLatencyMs;
+  private final ReadWriteLockMutableRate opsLatencyMs;
+  private final MetricsRegistry registry = new MetricsRegistry(
+      DeleteContainerCommandHandler.class.getSimpleName());
 
   public DeleteContainerCommandHandler(
       int threadPoolSize, Clock clock, int queueSize, String threadNamePrefix) {
@@ -74,9 +76,7 @@ public class DeleteContainerCommandHandler implements CommandHandler {
     this.executor = executor;
     this.clock = clock;
     maxQueueSize = queueSize;
-    MetricsRegistry registry = new MetricsRegistry(
-        DeleteContainerCommandHandler.class.getSimpleName());
-    this.opsLatencyMs = registry.newRate(SCMCommandProto.Type.deleteContainerCommand + "Ms");
+    this.opsLatencyMs = new ReadWriteLockMutableRate(SCMCommandProto.Type.deleteContainerCommand + "Ms");
   }
   @Override
   public void handle(final SCMCommand command,

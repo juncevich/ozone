@@ -20,11 +20,11 @@ package org.apache.hadoop.ozone.om.ratis;
 
 import org.apache.hadoop.metrics2.MetricsSystem;
 import org.apache.hadoop.metrics2.annotation.Metric;
-import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.metrics2.lib.MutableCounterLong;
 import org.apache.hadoop.metrics2.lib.MutableGaugeFloat;
-import org.apache.hadoop.metrics2.lib.MutableRate;
 import org.apache.hadoop.metrics2.lib.MutableStat;
+import org.apache.hadoop.ozone.metrics.OzoneMetricsSystem;
+import org.apache.hadoop.ozone.metrics.ReadWriteLockMutableRate;
 
 /**
  * Class which maintains metrics related to OzoneManager DoubleBuffer.
@@ -51,7 +51,7 @@ public class OzoneManagerDoubleBufferMetrics {
 
   @Metric(about = "DoubleBuffer flushTime. This metrics particularly captures" +
       " rocksdb batch commit time.")
-  private MutableRate flushTime;
+  private ReadWriteLockMutableRate flushTime;
 
   @Metric(about = "Average number of transactions flushed in a single " +
       "iteration")
@@ -64,7 +64,7 @@ public class OzoneManagerDoubleBufferMetrics {
     if (instance != null) {
       return instance;
     } else {
-      MetricsSystem ms = DefaultMetricsSystem.instance();
+      MetricsSystem ms = OzoneMetricsSystem.instance();
       OzoneManagerDoubleBufferMetrics omDoubleBufferMetrics =
           ms.register(SOURCE_NAME,
               "OzoneManager DoubleBuffer Metrics",
@@ -112,7 +112,7 @@ public class OzoneManagerDoubleBufferMetrics {
     flushTime.add(time);
   }
 
-  MutableRate getFlushTime() {
+  ReadWriteLockMutableRate getFlushTime() {
     return flushTime;
   }
 
@@ -144,7 +144,7 @@ public class OzoneManagerDoubleBufferMetrics {
   }
 
   public void unRegister() {
-    MetricsSystem ms = DefaultMetricsSystem.instance();
+    MetricsSystem ms = OzoneMetricsSystem.instance();
     ms.unregisterSource(SOURCE_NAME);
   }
 }

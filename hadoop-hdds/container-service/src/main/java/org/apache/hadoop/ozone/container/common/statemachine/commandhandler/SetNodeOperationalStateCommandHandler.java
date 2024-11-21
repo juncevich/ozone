@@ -24,7 +24,7 @@ import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SetNodeOperationalStateCommandProto;
 import org.apache.hadoop.hdds.utils.HddsServerUtil;
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
-import org.apache.hadoop.metrics2.lib.MutableRate;
+import org.apache.hadoop.ozone.metrics.ReadWriteLockMutableRate;
 import org.apache.hadoop.ozone.container.common.helpers.ContainerUtils;
 import org.apache.hadoop.ozone.container.common.statemachine.SCMConnectionManager;
 import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
@@ -55,7 +55,9 @@ public class SetNodeOperationalStateCommandHandler implements CommandHandler {
   private final ConfigurationSource conf;
   private final Consumer<HddsProtos.NodeOperationalState> replicationSupervisor;
   private final AtomicInteger invocationCount = new AtomicInteger(0);
-  private final MutableRate opsLatencyMs;
+  private final ReadWriteLockMutableRate opsLatencyMs;
+  private final MetricsRegistry registry = new MetricsRegistry(
+      SetNodeOperationalStateCommandHandler.class.getSimpleName());
 
   /**
    * Set Node State command handler.
@@ -66,9 +68,7 @@ public class SetNodeOperationalStateCommandHandler implements CommandHandler {
       Consumer<HddsProtos.NodeOperationalState> replicationSupervisor) {
     this.conf = conf;
     this.replicationSupervisor = replicationSupervisor;
-    MetricsRegistry registry = new MetricsRegistry(
-        SetNodeOperationalStateCommandHandler.class.getSimpleName());
-    this.opsLatencyMs = registry.newRate(Type.setNodeOperationalStateCommand + "Ms");
+    this.opsLatencyMs = new ReadWriteLockMutableRate(Type.setNodeOperationalStateCommand + "Ms");
   }
 
   /**

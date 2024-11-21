@@ -20,11 +20,11 @@ package org.apache.hadoop.ozone.container.common.volume;
 
 import org.apache.hadoop.metrics2.MetricsSystem;
 import org.apache.hadoop.metrics2.annotation.Metric;
-import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
 import org.apache.hadoop.metrics2.lib.MutableCounterLong;
-import org.apache.hadoop.metrics2.lib.MutableQuantiles;
-import org.apache.hadoop.metrics2.lib.MutableRate;
+import org.apache.hadoop.ozone.metrics.MutableQuantiles;
+import org.apache.hadoop.ozone.metrics.OzoneMetricsSystem;
+import org.apache.hadoop.ozone.metrics.ReadWriteLockMutableRate;
 
 /**
  * This class is used to track Volume IO stats for each HDDS Volume.
@@ -42,11 +42,11 @@ public class VolumeIOStats {
   @Metric
   private MutableCounterLong writeOpCount;
   @Metric
-  private MutableRate readTime;
+  private ReadWriteLockMutableRate readTime;
   @Metric
   private MutableQuantiles[] readLatencyQuantiles;
   @Metric
-  private MutableRate writeTime;
+  private ReadWriteLockMutableRate writeTime;
   @Metric
   private MutableQuantiles[] writeLatencyQuantiles;
 
@@ -68,10 +68,10 @@ public class VolumeIOStats {
       readLatencyQuantiles = new MutableQuantiles[intervals.length];
       writeLatencyQuantiles = new MutableQuantiles[intervals.length];
       for (int i = 0; i < length; i++) {
-        readLatencyQuantiles[i] = registry.newQuantiles(
+        readLatencyQuantiles[i] = new MutableQuantiles(
             "readLatency" + intervals[i] + "s",
             "Read Data File Io Latency in ms", "ops", "latency", intervals[i]);
-        writeLatencyQuantiles[i] = registry.newQuantiles(
+        writeLatencyQuantiles[i] = new MutableQuantiles(
             "writeLatency" + intervals[i] + "s",
             "Write Data File Io Latency in ms", "ops", "latency", intervals[i]);
       }
@@ -80,12 +80,11 @@ public class VolumeIOStats {
   }
 
   public void init() {
-    MetricsSystem ms = DefaultMetricsSystem.instance();
-    ms.register(metricsSourceName, "Volume I/O Statistics", this);
+    OzoneMetricsSystem.register(metricsSourceName, "Volume I/O Statistics", this);
   }
 
   public void unregister() {
-    MetricsSystem ms = DefaultMetricsSystem.instance();
+    MetricsSystem ms = OzoneMetricsSystem.instance();
     ms.unregisterSource(metricsSourceName);
   }
 
