@@ -133,7 +133,7 @@ public class OzoneBucketStateMachine extends BaseStateMachine {
       throws IOException {
     super.initialize(server, id, raftStorage);
     storage.init(raftStorage);
-//    ratisServer.notifyGroupAdd(id);
+    ratisServer.notifyGroupAdd(id);
 
     LOG.info("{}: initialize {}", server.getId(), id);
     loadSnapshot(storage.getLatestSnapshot());

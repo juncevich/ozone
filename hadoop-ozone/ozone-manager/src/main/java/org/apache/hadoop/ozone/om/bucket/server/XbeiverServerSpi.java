@@ -50,13 +50,6 @@ public interface XbeiverServerSpi {
   boolean isExist(RaftGroupId pipelineId);
 
   /**
-   * Join a new pipeline.
-   */
-  default void addGroup(RaftGroupId groupId,
-                        List<RaftPeer> peers) throws IOException {
-  }
-
-  /**
    * Join a new pipeline with priority.
    */
   default void addGroup(RaftGroupId groupId,
