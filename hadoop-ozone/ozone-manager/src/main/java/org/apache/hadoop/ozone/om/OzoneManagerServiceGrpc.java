@@ -85,7 +85,7 @@ public class OzoneManagerServiceGrpc extends OzoneManagerServiceImplBase {
           submitRequest(NULL_RPC_CONTROLLER, request);
       responseObserver.onNext(omResponse);
     } catch (Throwable e) {
-      LOG.error("Failed to submit request", e);
+//      LOG.error("Failed to submit request {} {}", request.getCmdType(), request.toString(), e);
       IOException ex = new IOException(e.getCause());
       responseObserver.onError(
           Status.INTERNAL.withDescription(ex.getMessage())

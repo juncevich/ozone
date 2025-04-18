@@ -26,6 +26,7 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import static org.mockito.ArgumentMatchers.any;
 
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -218,7 +219,7 @@ public class TestOzoneManagerRatisServer {
       Exception {
     UUID uuid = UUID.nameUUIDFromBytes(OzoneConsts.OM_SERVICE_ID_DEFAULT
         .getBytes(UTF_8));
-    RaftGroupId raftGroupId = omRatisServer.getRaftGroup().getGroupId();
+    RaftGroupId raftGroupId = omRatisServer.getCurrentRaftGroup().getGroupId();
     Assertions.assertEquals(uuid, raftGroupId.getUuid());
     Assertions.assertEquals(raftGroupId.toByteString().size(), 16);
   }
@@ -251,7 +252,7 @@ public class TestOzoneManagerRatisServer {
     newOmRatisServer.start();
 
     UUID uuid = UUID.nameUUIDFromBytes(customOmServiceId.getBytes(UTF_8));
-    RaftGroupId raftGroupId = newOmRatisServer.getRaftGroup().getGroupId();
+    RaftGroupId raftGroupId = newOmRatisServer.getCurrentRaftGroup().getGroupId();
     Assertions.assertEquals(uuid, raftGroupId.getUuid());
     Assertions.assertEquals(raftGroupId.toByteString().size(), 16);
     newOmRatisServer.stop();

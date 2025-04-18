@@ -39,6 +39,8 @@ import org.apache.hadoop.ozone.om.exceptions.OMNotLeaderException;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.SnapshotInfo;
+import org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServerConfig;
 import org.apache.hadoop.ozone.om.snapshot.ReferenceCounted;
 import org.apache.hadoop.ozone.snapshot.SnapshotDiffReportOzone;
@@ -58,6 +60,7 @@ import org.junit.jupiter.api.Timeout;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -68,6 +71,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_INTERVAL;
@@ -594,7 +599,10 @@ public class TestSnapshotBackgroundServices {
 
     GenericTestUtils.waitFor(() -> {
       try {
-        followerOM.checkLeaderStatus();
+        UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(
+            leaderOM.getOMServiceId().getBytes(StandardCharsets.UTF_8));;
+        RaftGroupId raftGroupId = RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
+        followerOM.checkLeaderStatus(raftGroupId);
         return true;
       } catch (OMNotLeaderException | OMLeaderNotReadyException e) {
         return false;

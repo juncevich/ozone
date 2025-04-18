@@ -20,10 +20,6 @@ package org.apache.hadoop.ozone.om.ratis.utils;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.protobuf.ServiceException;
-import java.io.File;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Paths;
-
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.security.SecurityConfig;
@@ -31,26 +27,27 @@ import org.apache.hadoop.hdds.security.ssl.KeyStoresFactory;
 import org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient;
 import org.apache.hadoop.hdds.server.ServerUtils;
 import org.apache.hadoop.hdds.utils.HAUtils;
+import org.apache.hadoop.hdds.utils.TransactionInfo;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.codec.OMDBDefinition;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
-import org.apache.hadoop.hdds.utils.TransactionInfo;
-import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.exceptions.OMLeaderNotReadyException;
 import org.apache.hadoop.ozone.om.exceptions.OMNotLeaderException;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.request.BucketLayoutAwareOMKeyRequestFactory;
+import org.apache.hadoop.ozone.om.request.OMClientRequest;
 import org.apache.hadoop.ozone.om.request.bucket.OMBucketCreateRequest;
 import org.apache.hadoop.ozone.om.request.bucket.OMBucketDeleteRequest;
 import org.apache.hadoop.ozone.om.request.bucket.OMBucketSetOwnerRequest;
 import org.apache.hadoop.ozone.om.request.bucket.OMBucketSetPropertyRequest;
-import org.apache.hadoop.ozone.om.request.OMClientRequest;
 import org.apache.hadoop.ozone.om.request.bucket.acl.OMBucketAddAclRequest;
 import org.apache.hadoop.ozone.om.request.bucket.acl.OMBucketRemoveAclRequest;
 import org.apache.hadoop.ozone.om.request.bucket.acl.OMBucketSetAclRequest;
 import org.apache.hadoop.ozone.om.request.file.OMRecoverLeaseRequest;
-import org.apache.hadoop.ozone.om.request.key.OMKeyPurgeRequest;
 import org.apache.hadoop.ozone.om.request.key.OMDirectoriesPurgeRequestWithFSO;
+import org.apache.hadoop.ozone.om.request.key.OMKeyPurgeRequest;
+import org.apache.hadoop.ozone.om.request.key.OMKeyRequest;
 import org.apache.hadoop.ozone.om.request.key.OMOpenKeysDeleteRequest;
 import org.apache.hadoop.ozone.om.request.key.acl.OMKeyAddAclRequest;
 import org.apache.hadoop.ozone.om.request.key.acl.OMKeyAddAclRequestWithFSO;
@@ -65,9 +62,9 @@ import org.apache.hadoop.ozone.om.request.s3.multipart.S3ExpiredMultipartUploads
 import org.apache.hadoop.ozone.om.request.s3.security.OMSetSecretRequest;
 import org.apache.hadoop.ozone.om.request.s3.security.S3GetSecretRequest;
 import org.apache.hadoop.ozone.om.request.s3.security.S3RevokeSecretRequest;
-import org.apache.hadoop.ozone.om.request.s3.tenant.OMTenantAssignUserAccessIdRequest;
 import org.apache.hadoop.ozone.om.request.s3.tenant.OMSetRangerServiceVersionRequest;
 import org.apache.hadoop.ozone.om.request.s3.tenant.OMTenantAssignAdminRequest;
+import org.apache.hadoop.ozone.om.request.s3.tenant.OMTenantAssignUserAccessIdRequest;
 import org.apache.hadoop.ozone.om.request.s3.tenant.OMTenantCreateRequest;
 import org.apache.hadoop.ozone.om.request.s3.tenant.OMTenantDeleteRequest;
 import org.apache.hadoop.ozone.om.request.s3.tenant.OMTenantRevokeAdminRequest;
@@ -97,18 +94,39 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OzoneOb
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
 import org.apache.ratis.grpc.GrpcTlsConfig;
+import org.apache.ratis.protocol.ClientId;
 import org.rocksdb.RocksDBException;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
+import org.apache.hadoop.ozone.om.request.key.OMKeyRequest;
+import org.apache.ratis.protocol.RaftGroupId;
 
 import java.io.IOException;
 import java.nio.file.Path;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
+import org.apache.hadoop.ozone.om.request.key.OMKeyRequest;
+import org.apache.ratis.protocol.RaftGroupId;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_RATIS_SNAPSHOT_DIR;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_RATIS_SNAPSHOT_DIR;
 import static org.apache.hadoop.ozone.om.OzoneManagerUtils.getBucketLayout;
+import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateBucketGroupId;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
+import org.apache.hadoop.ozone.om.request.key.OMKeyRequest;
+import org.apache.ratis.protocol.RaftGroupId;
+import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateBucketGroupId;
 
 /**
  * Utility class used by OzoneManager HA.
@@ -122,13 +140,14 @@ public final class OzoneManagerRatisUtils {
 
   /**
    * Create OMClientRequest which encapsulates the OMRequest.
+   *
    * @param omRequest
    * @return OMClientRequest
    * @throws IOException
    */
   @SuppressWarnings("checkstyle:methodlength")
   public static OMClientRequest createClientRequest(OMRequest omRequest,
-      OzoneManager ozoneManager) throws IOException {
+                                                    OzoneManager ozoneManager) throws IOException {
 
     // Handling of exception by createClientRequest(OMRequest, OzoneManger):
     // Either the code will take FSO or non FSO path, both classes has a
@@ -151,10 +170,10 @@ public final class OzoneManagerRatisUtils {
           .hasQuotaInBytes();
       boolean hasOwner = omRequest.getSetVolumePropertyRequest().hasOwnerName();
       Preconditions.checkState(hasOwner || hasQuota, "Either Quota or owner " +
-          "should be set in the SetVolumeProperty request");
+                                                     "should be set in the SetVolumeProperty request");
       Preconditions.checkState(!(hasOwner && hasQuota), "Either Quota or " +
-          "owner should be set in the SetVolumeProperty request. Should not " +
-          "set both");
+                                                        "owner should be set in the SetVolumeProperty request. Should not " +
+                                                        "set both");
       if (hasQuota) {
         return new OMVolumeSetQuotaRequest(omRequest);
       } else {
@@ -241,11 +260,11 @@ public final class OzoneManagerRatisUtils {
       volumeName = omRequest.getRecoverLeaseRequest().getVolumeName();
       bucketName = omRequest.getRecoverLeaseRequest().getBucketName();
       bucketLayout =
-        getBucketLayout(ozoneManager.getMetadataManager(), volumeName,
-          bucketName);
+          getBucketLayout(ozoneManager.getMetadataManager(), volumeName,
+              bucketName);
       if (bucketLayout != BucketLayout.FILE_SYSTEM_OPTIMIZED) {
         throw new IOException("Bucket " + bucketName + " is not FSO layout. " +
-                "It does not support lease recovery");
+                              "It does not support lease recovery");
       }
       return new OMRecoverLeaseRequest(omRequest);
     /*
@@ -331,15 +350,19 @@ public final class OzoneManagerRatisUtils {
       return new S3ExpiredMultipartUploadsAbortRequest(omRequest);
     default:
       throw new OMException("Unrecognized write command type request "
-          + cmdType, OMException.ResultCodes.INVALID_REQUEST);
+                            + cmdType, OMException.ResultCodes.INVALID_REQUEST);
     }
 
-    return BucketLayoutAwareOMKeyRequestFactory.createRequest(
+    OMKeyRequest request = BucketLayoutAwareOMKeyRequestFactory.createRequest(
         volumeName, bucketName, omRequest, ozoneManager.getMetadataManager());
+    if (!bucketName.isEmpty()) {
+      request.setWriteReqBucketName(bucketName);
+    }
+    return request;
   }
 
   private static OMClientRequest getOMAclRequest(OMRequest omRequest,
-      OzoneManager ozoneManager) {
+                                                 OzoneManager ozoneManager) {
     Type cmdType = omRequest.getCmdType();
     if (Type.AddAcl == cmdType) {
       ObjectType type = omRequest.getAddAclRequest().getObj().getResType();
@@ -434,9 +457,10 @@ public final class OzoneManagerRatisUtils {
 
   /**
    * Verify transaction info with provided lastAppliedIndex.
-   *
+   * <p>
    * If transaction info transaction Index is less than or equal to
    * lastAppliedIndex, return false, else return true.
+   *
    * @param transactionInfo
    * @param lastAppliedIndex
    * @param leaderId
@@ -444,7 +468,7 @@ public final class OzoneManagerRatisUtils {
    * @return boolean
    */
   public static boolean verifyTransactionInfo(TransactionInfo transactionInfo,
-      long lastAppliedIndex, String leaderId, Path newDBlocation) {
+                                              long lastAppliedIndex, String leaderId, Path newDBlocation) {
     return HAUtils
         .verifyTransactionInfo(transactionInfo, lastAppliedIndex, leaderId,
             newDBlocation, OzoneManager.LOG);
@@ -481,13 +505,31 @@ public final class OzoneManagerRatisUtils {
 
   public static void checkLeaderStatus(OzoneManager ozoneManager)
       throws ServiceException {
+    LOG.info("Check leader status for OM");
     try {
-      ozoneManager.checkLeaderStatus();
+      RaftGroupId raftGroupId = generateBucketGroupId(ozoneManager.getOMServiceId());
+      ozoneManager.checkLeaderStatus(raftGroupId);
     } catch (OMNotLeaderException | OMLeaderNotReadyException e) {
       LOG.debug(e.getMessage());
       throw new ServiceException(e);
     }
   }
+
+  public static void checkLeaderStatus(RaftGroupId raftGroupId, OzoneManager ozoneManager)
+      throws ServiceException {
+    LOG.info("Check leader status for {}", raftGroupId);
+    try {
+      ozoneManager.checkLeaderStatus(raftGroupId);
+    } catch (OMNotLeaderException | OMLeaderNotReadyException e) {
+      LOG.info(e.getMessage() + " For group " + raftGroupId);
+      throw new ServiceException(e);
+    }
+  }
+
+//  public static RaftGroupId generateBucketGroupId(String raftGroupPlainStr) {
+//    UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(raftGroupPlainStr.getBytes(StandardCharsets.UTF_8));;
+//    return RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
+//  }
 
   public static GrpcTlsConfig createServerTlsConfig(SecurityConfig conf,
       CertificateClient caClient) throws IOException {
@@ -498,5 +540,19 @@ public final class OzoneManagerRatisUtils {
     }
 
     return null;
+  }
+
+  public static OzoneManagerProtocolProtos.OMResponse submitRequest(
+          OzoneManager om, OMRequest omRequest, String raftGroupToHandleRequest)
+          throws ServiceException {
+    LOG.info("Submit request in Ratis Utils 1 {}", omRequest.getCmdType());
+    return om.getOmRatisServer().submitRequest(omRequest, raftGroupToHandleRequest);
+  }
+
+  public static OzoneManagerProtocolProtos.OMResponse submitRequest(
+      OzoneManager om, OMRequest omRequest, ClientId clientId, long callId, String raftGroupToHandleRequest)
+      throws ServiceException {
+    LOG.info("Submit request in Ratis Utils 2 {}", omRequest.getCmdType());
+    return om.getOmRatisServer().submitRequest(omRequest, clientId, callId, raftGroupToHandleRequest);
   }
 }

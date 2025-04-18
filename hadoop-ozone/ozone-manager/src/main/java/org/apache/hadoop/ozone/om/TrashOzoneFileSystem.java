@@ -38,6 +38,7 @@ import org.apache.hadoop.ozone.om.helpers.OzoneFileStatus;
 import org.apache.hadoop.ozone.om.helpers.OMRatisHelper;
 import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils;
 import org.apache.hadoop.ozone.om.request.OMClientRequest;
+import org.apache.hadoop.ozone.om.request.key.OMKeyRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Progressable;
@@ -46,7 +47,7 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URI;
@@ -102,7 +103,7 @@ public class TrashOzoneFileSystem extends FileSystem {
     return RaftClientRequest.newBuilder()
         .setClientId(CLIENT_ID)
         .setServerId(ozoneManager.getOmRatisServer().getRaftPeerId())
-        .setGroupId(ozoneManager.getOmRatisServer().getRaftGroupId())
+        .setGroupId(ozoneManager.getOmRatisServer().getCurrentRaftGroupId())
         .setCallId(runCount.getAndIncrement())
         .setMessage(
             Message.valueOf(
@@ -115,16 +116,18 @@ public class TrashOzoneFileSystem extends FileSystem {
   private void submitRequest(OzoneManagerProtocolProtos.OMRequest omRequest)
       throws Exception {
     ozoneManager.getMetrics().incNumTrashWriteRequests();
-    if (ozoneManager.isRatisEnabled()) {
+//    if (ozoneManager.isRatisEnabled()) {
       OMClientRequest omClientRequest =
           OzoneManagerRatisUtils.createClientRequest(omRequest, ozoneManager);
-      omRequest = omClientRequest.preExecute(ozoneManager);
-      RaftClientRequest req = getRatisRequest(omRequest);
-      ozoneManager.getOmRatisServer().submitRequest(omRequest, req);
-    } else {
-      ozoneManager.getOmServerProtocol().
-          submitRequest(NULL_RPC_CONTROLLER, omRequest);
-    }
+    omRequest = omClientRequest.preExecute(ozoneManager);
+
+    OMKeyRequest omKeyRequest = (OMKeyRequest) omClientRequest;
+    OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, CLIENT_ID, runCount.getAndIncrement(),
+            omKeyRequest.getWriteReqBucketName() != null ? omKeyRequest.getWriteReqBucketName() : ozoneManager.getOMServiceId());
+//    } else {
+//      ozoneManager.getOmServerProtocol().
+//          submitRequest(NULL_RPC_CONTROLLER, omRequest);
+//    }
   }
 
   @Override

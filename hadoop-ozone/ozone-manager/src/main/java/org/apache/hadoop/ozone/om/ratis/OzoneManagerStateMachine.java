@@ -98,7 +98,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
   private RequestHandler handler;
   private RaftGroupId raftGroupId;
   private OzoneManagerDoubleBuffer ozoneManagerDoubleBuffer;
-  private final RatisSnapshotInfo snapshotInfo;
+//  private final RatisSnapshotInfo snapshotInfo;
   private final ExecutorService executorService;
   private final ExecutorService installSnapshotExecutor;
   private final boolean isTracingEnabled;
@@ -116,14 +116,13 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
       new ConcurrentSkipListMap<>();
   private OzoneManagerStateMachineMetrics metrics;
 
-
   public OzoneManagerStateMachine(OzoneManagerRatisServer ratisServer,
-      boolean isTracingEnabled) throws IOException {
+      RaftGroupId raftGroupId, boolean isTracingEnabled) throws IOException {
     this.omRatisServer = ratisServer;
     this.isTracingEnabled = isTracingEnabled;
     this.ozoneManager = omRatisServer.getOzoneManager();
 
-    this.snapshotInfo = ozoneManager.getSnapshotInfo();
+//    this.snapshotInfo = (RatisSnapshotInfo) ozoneManager.getTransactionInfo(raftGroupId).toSnapshotInfo();
     loadSnapshotInfoFromDB();
     this.threadPrefix = ozoneManager.getThreadNamePrefix();
 
@@ -142,6 +141,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
     this.installSnapshotExecutor =
         HadoopExecutors.newSingleThreadExecutor(installSnapshotThreadFactory);
     this.metrics = OzoneManagerStateMachineMetrics.create();
+    this.raftGroupId = raftGroupId;
   }
 
   /**
@@ -154,27 +154,33 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
       super.initialize(server, id, raftStorage);
       this.raftGroupId = id;
       storage.init(raftStorage);
+      LOG.info("{}: initialize {} with {}", getId(), raftGroupId, getLastAppliedTermIndex());
     });
   }
 
   @Override
   public synchronized void reinitialize() throws IOException {
+    LOG.info("Reinitialize");
     loadSnapshotInfoFromDB();
     if (getLifeCycleState() == LifeCycle.State.PAUSED) {
-      unpause(getLastAppliedTermIndex().getIndex(),
+      long index = getLastAppliedTermIndex().getIndex();
+      unpause(index,
           getLastAppliedTermIndex().getTerm());
+      LOG.info("{}: reinitialize {} with {}", getId(), getGroupId(), index);
     }
   }
 
   @Override
   public SnapshotInfo getLatestSnapshot() {
-    LOG.debug("Latest Snapshot Info {}", snapshotInfo);
-    return snapshotInfo;
+    final SnapshotInfo currentSnapshotInfo = ozoneManager.getTransactionInfo(raftGroupId).toSnapshotInfo();
+    LOG.debug("Latest Snapshot Info {}", currentSnapshotInfo);
+    return currentSnapshotInfo;
   }
 
   @Override
   public void notifyLeaderChanged(RaftGroupMemberId groupMemberId,
                                   RaftPeerId newLeaderId) {
+    LOG.info("Change leader in group {}. New leader {}", groupMemberId, newLeaderId);
     // Initialize OMHAMetrics
     ozoneManager.omHAMetricsInit(newLeaderId.toString());
   }
@@ -189,6 +195,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
    */
   @Override
   public void notifyTermIndexUpdated(long currentTerm, long index) {
+    LOG.info("Notify term index updated {} - {}", index, currentTerm);
     // SnapshotInfo should be updated when the term changes.
     // The index here refers to the log entry index and the index in
     // SnapshotInfo represents the snapshotIndex i.e. the index of the last
@@ -239,7 +246,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
     case SUCCESS:
     case SNAPSHOT_UNAVAILABLE:
       // Currently, only trigger for the one who installed snapshot
-      if (ozoneManager.getOmRatisServer().getServer().getPeer().equals(peer)) {
+      if (ozoneManager.getOmRatisServer().getServerDivision(raftGroupId).getPeer().equals(peer)) {
         ozoneManager.getOmSnapshotProvider().init();
       }
       break;
@@ -254,6 +261,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
    * should be rejected.
    * @throws IOException thrown by the state machine while validating
    */
+  // No in bucket
   @Override
   public TransactionContext startTransaction(
       RaftClientRequest raftClientRequest) throws IOException {
@@ -277,6 +285,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
     return handleStartTransactionRequests(raftClientRequest, omRequest);
   }
 
+  // No in bucket
   @Override
   public TransactionContext preAppendTransaction(TransactionContext trx)
       throws IOException {
@@ -325,6 +334,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
    */
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
+    LOG.info("Apply transaction {}", trx.getLogEntry().getIndex());
     try {
       // For the Leader, the OMRequest is set in trx in startTransaction.
       // For Followers, the OMRequest hast to be converted from the log entry.
@@ -374,6 +384,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
       CompletableFuture<OMResponse> future = CompletableFuture.supplyAsync(
           () -> runCommand(request, trxLogIndex), executorService);
       future.thenApply(omResponse -> {
+        LOG.info("Response result: {}", omResponse.getSuccess());
         if (!omResponse.getSuccess()) {
           // When INTERNAL_ERROR or METADATA_ERROR it is considered as
           // critical error and terminate the OM. Considering INTERNAL_ERROR
@@ -413,6 +424,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
    */
   private void terminate(OMResponse omResponse,
       OMException.ResultCodes resultCode) {
+    LOG.info("Terminate {} - {}", omResponse.getCmdType(), resultCode);
     OMException exception = new OMException(omResponse.getMessage(),
         resultCode);
     String errorMessage = "OM Ratis Server has received unrecoverable " +
@@ -497,14 +509,15 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
     LOG.info("Current Snapshot Index {}", getLastAppliedTermIndex());
     TermIndex lastTermIndex = getLastAppliedTermIndex();
     long lastAppliedIndex = lastTermIndex.getIndex();
-    snapshotInfo.updateTermIndex(lastTermIndex.getTerm(),
-        lastAppliedIndex);
-    TransactionInfo build = new TransactionInfo.Builder()
+//    snapshotInfo.updateTermIndex(lastTermIndex.getTerm(),
+//        lastAppliedIndex);
+    TransactionInfo transactionInfo = new TransactionInfo.Builder()
         .setTransactionIndex(lastAppliedIndex)
         .setCurrentTerm(lastTermIndex.getTerm()).build();
+    ozoneManager.setTransactionInfo(raftGroupId, transactionInfo);
     Table<String, TransactionInfo> txnInfoTable =
         ozoneManager.getMetadataManager().getTransactionInfoTable();
-    txnInfoTable.put(TRANSACTION_INFO_KEY, build);
+    txnInfoTable.put(TRANSACTION_INFO_KEY, transactionInfo);
     ozoneManager.getMetadataManager().getStore().flushDB();
     return lastAppliedIndex;
   }
@@ -527,7 +540,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
             "term index: {}", leaderNodeId, firstTermIndexInLog);
 
     CompletableFuture<TermIndex> future = CompletableFuture.supplyAsync(
-        () -> ozoneManager.installSnapshotFromLeader(leaderNodeId),
+        () -> ozoneManager.installSnapshotFromLeader(raftGroupId, leaderNodeId),
         installSnapshotExecutor);
     return future;
   }
@@ -582,11 +595,17 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
    * @throws ServiceException
    */
   private OMResponse runCommand(OMRequest request, long trxLogIndex) {
+    LOG.info("Run command {} - {}", request.getCmdType(), trxLogIndex);
     try {
       OMClientResponse omClientResponse =
           handler.handleWriteRequest(request, trxLogIndex);
       OMLockDetails omLockDetails = omClientResponse.getOmLockDetails();
       OMResponse omResponse = omClientResponse.getOMResponse();
+      if (request.hasCreateBucketRequest()) {
+        String bucketName = request.getCreateBucketRequest().getBucketInfo().getBucketName();
+        LOG.info("Creating raft group while runCommand {}", bucketName);
+        ozoneManager.createRaftGroupForBucket(bucketName);
+      }
       if (omLockDetails != null) {
         return omResponse.toBuilder()
             .setOmLockDetails(omLockDetails.toProtobufBuilder()).build();
@@ -627,6 +646,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
    * @param flushedEpochs
    */
   public void updateLastAppliedIndex(List<Long> flushedEpochs) {
+    LOG.info("Updated last applied index {}", flushedEpochs);
     Preconditions.checkArgument(flushedEpochs.size() > 0);
     computeAndUpdateLastAppliedIndex(
         flushedEpochs.get(flushedEpochs.size() - 1), -1L, flushedEpochs, true);
@@ -706,6 +726,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
     // This is done, as we have a check in Ratis for not throwing
     // LeaderNotReadyException, it checks stateMachineIndex >= raftLog
     // nextIndex (placeHolderIndex).
+    LOG.info("Load snapshot from DB");
     TransactionInfo transactionInfo =
         TransactionInfo.readTransactionInfo(
             ozoneManager.getMetadataManager());
@@ -713,8 +734,9 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
       setLastAppliedTermIndex(TermIndex.valueOf(
           transactionInfo.getTerm(),
           transactionInfo.getTransactionIndex()));
-      snapshotInfo.updateTermIndex(transactionInfo.getTerm(),
-          transactionInfo.getTransactionIndex());
+//      snapshotInfo.updateTermIndex(transactionInfo.getTerm(),
+//          transactionInfo.getTransactionIndex());
+      ozoneManager.setTransactionInfo(raftGroupId, transactionInfo);
     }
     LOG.info("LastAppliedIndex is set from TransactionInfo from OM DB as {}",
         getLastAppliedTermIndex());
@@ -758,6 +780,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
   }
 
   public void stop() {
+    LOG.info("Stop state machine");
     ozoneManagerDoubleBuffer.stop();
     HadoopExecutors.shutdown(executorService, LOG, 5, TimeUnit.SECONDS);
     HadoopExecutors.shutdown(installSnapshotExecutor, LOG, 5, TimeUnit.SECONDS);

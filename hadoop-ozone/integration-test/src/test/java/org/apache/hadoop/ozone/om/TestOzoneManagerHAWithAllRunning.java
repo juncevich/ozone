@@ -21,11 +21,11 @@ import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.ozone.ClientVersion;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.OzoneTestUtils;
+import org.apache.hadoop.ozone.client.BucketArgs;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
-import org.apache.hadoop.ozone.client.BucketArgs;
-import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.OzoneClient;
+import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.VolumeArgs;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.ha.HadoopRpcOMFailoverProxyProvider;
@@ -46,9 +46,14 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.anyOf;
+import java.util.UUID;
+import java.nio.charset.StandardCharsets;
+import static org.assertj.core.api.Assertions.anyOf;
 
 import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
@@ -56,11 +61,13 @@ import javax.management.ObjectName;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 import static java.util.UUID.randomUUID;
 import static org.apache.hadoop.ozone.OzoneAcl.AclScope.ACCESS;
@@ -76,6 +83,7 @@ import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRI
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -373,7 +381,10 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
       }
     }
     assertNotNull(followerOM);
-    Assertions.assertSame(followerOM.getOmRatisServer().checkLeaderStatus(),
+    UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(followerOM.getOMServiceId().getBytes(
+            StandardCharsets.UTF_8));;
+    RaftGroupId raftGroupId = RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
+    Assertions.assertSame(followerOM.getOmRatisServer().checkLeaderStatus(raftGroupId),
         OzoneManagerRatisServer.RaftServerStatus.NOT_LEADER);
 
     OzoneManagerProtocolProtos.OMRequest writeRequest =
@@ -433,8 +444,8 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
         getCluster().getOzoneManager(0).getOmRatisServer();
     ObjectName oname = new ObjectName(RATIS_APPLICATION_NAME_METRICS, "name",
         RATIS_APPLICATION_NAME_METRICS + ".log_worker." +
-            ratisServer.getRaftPeerId().toString() +
-            "@" + ratisServer.getRaftGroup().getGroupId() + ".flushCount");
+        ratisServer.getRaftPeerId().toString() +
+        "@" + ratisServer.getCurrentRaftGroup().getGroupId() + ".flushCount");
     MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
     MBeanInfo mBeanInfo = mBeanServer.getMBeanInfo(oname);
     assertNotNull(mBeanInfo);
@@ -490,7 +501,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
         raftServer.submitClientRequest(RaftClientRequest.newBuilder()
             .setClientId(clientId)
             .setServerId(raftServer.getId())
-            .setGroupId(ozoneManagerRatisServer.getRaftGroup().getGroupId())
+            .setGroupId(ozoneManagerRatisServer.getCurrentRaftGroup().getGroupId())
             .setCallId(callId)
             .setMessage(
                 Message.valueOf(
@@ -509,7 +520,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
         raftServer.submitClientRequest(RaftClientRequest.newBuilder()
             .setClientId(clientId)
             .setServerId(raftServer.getId())
-            .setGroupId(ozoneManagerRatisServer.getRaftGroup().getGroupId())
+            .setGroupId(ozoneManagerRatisServer.getCurrentRaftGroup().getGroupId())
             .setCallId(callId)
             .setMessage(
                 Message.valueOf(
@@ -533,7 +544,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
         raftServer.submitClientRequest(RaftClientRequest.newBuilder()
             .setClientId(clientId)
             .setServerId(raftServer.getId())
-            .setGroupId(ozoneManagerRatisServer.getRaftGroup().getGroupId())
+            .setGroupId(ozoneManagerRatisServer.getCurrentRaftGroup().getGroupId())
             .setCallId(callId)
             .setMessage(
                 Message.valueOf(

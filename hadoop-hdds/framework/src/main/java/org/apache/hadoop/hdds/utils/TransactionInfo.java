@@ -40,12 +40,16 @@ import static org.apache.hadoop.ozone.OzoneConsts.TRANSACTION_INFO_SPLIT_KEY;
  * This class is immutable.
  */
 public final class TransactionInfo {
+
+  public static final TransactionInfo DEFAULT_VALUE = valueOf(0, -1);
+
   private static final Codec<TransactionInfo> CODEC = new DelegatedCodec<>(
       StringCodec.get(),
       TransactionInfo::new,
       TransactionInfo::generateTransactionInfo,
       DelegatedCodec.CopyType.SHALLOW);
 
+//  public static final TransactionInfo DEFAULT_VALUE = new TransactionInfo(0, -1);
   public static Codec<TransactionInfo> getCodec() {
     return CODEC;
   }
@@ -67,10 +71,16 @@ public final class TransactionInfo {
     term = Long.parseLong(tInfo[0]);
     transactionIndex = Long.parseLong(tInfo[1]);
   }
+  public static TransactionInfo valueOf(long currentTerm, long transactionIndex) {
+    return valueOf(TermIndex.valueOf(currentTerm, transactionIndex));
+  }
 
-  private TransactionInfo(long currentTerm, long transactionIndex) {
-    this.term = currentTerm;
-    this.transactionIndex = transactionIndex;
+//  public static TransactionInfo valueOf(TermIndex termIndex) {
+//    return new TransactionInfo(termIndex.getTerm() + TRANSACTION_INFO_SPLIT_KEY + termIndex.getIndex());
+//  }
+
+  public static TransactionInfo valueOf(TermIndex termIndex) {
+    return new TransactionInfo(termIndex.getTerm() + TRANSACTION_INFO_SPLIT_KEY + termIndex.getIndex());
   }
 
   public boolean isDefault() {
@@ -93,6 +103,7 @@ public final class TransactionInfo {
     return term;
   }
 
+
   /**
    * Get current transaction index.
    * @return transactionIndex
@@ -114,6 +125,9 @@ public final class TransactionInfo {
     return term + TRANSACTION_INFO_SPLIT_KEY + transactionIndex;
   }
 
+  private static String generateTransactionInfo(TermIndex termIndex) {
+    return termIndex.getTerm() + TRANSACTION_INFO_SPLIT_KEY + termIndex.getIndex();
+  }
   /**
    * Convert OMTransactionInfo to byteArray to be persisted to OM DB.
    * @return byte[]
@@ -171,6 +185,13 @@ public final class TransactionInfo {
     return metadataManager.getTransactionInfoTable().get(TRANSACTION_INFO_KEY);
   }
 
+  public static TransactionInfo readTransactionInfo(
+          DBStoreHAManager metadataManager, String raftGroupId) throws IOException {
+    return metadataManager.getTransactionInfoTable().get(TRANSACTION_INFO_KEY + raftGroupId);
+  }
+
+
+
   public SnapshotInfo toSnapshotInfo() {
     return new RatisSnapshotInfo(term, transactionIndex);
   }
@@ -196,7 +217,8 @@ public final class TransactionInfo {
     }
 
     public TransactionInfo build() {
-      return new TransactionInfo(currentTerm, transactionIndex);
+      return new TransactionInfo(currentTerm + TRANSACTION_INFO_SPLIT_KEY + transactionIndex);
     }
+
   }
 }

@@ -181,6 +181,7 @@ public class GrpcOmTransport implements OmTransport {
 
   @Override
   public OMResponse submitRequest(OMRequest payload) throws IOException {
+    LOG.info("Submitting HadoopGrpc {}", payload.getCmdType());
     AtomicReference<OMResponse> resp = new AtomicReference<>();
     boolean tryOtherHost = true;
     int expectedFailoverCount = 0;

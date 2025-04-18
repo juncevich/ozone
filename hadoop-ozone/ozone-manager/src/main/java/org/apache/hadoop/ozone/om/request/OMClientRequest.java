@@ -78,7 +78,7 @@ public abstract class OMClientRequest implements RequestAuditor {
   private InetAddress inetAddress;
   private final ThreadLocal<OMLockDetails> omLockDetails =
       ThreadLocal.withInitial(OMLockDetails::new);
-
+  private String bucketName;
   /**
    * Stores the result of request execution in
    * OMClientRequest#validateAndUpdateCache.
@@ -573,5 +573,13 @@ public abstract class OMClientRequest implements RequestAuditor {
 
   public void mergeOmLockDetails(OMLockDetails details) {
     omLockDetails.get().merge(details);
+  }
+
+  public String getWriteReqBucketName() {
+    return bucketName;
+  }
+
+  public void setWriteReqBucketName(String bucketName) {
+    this.bucketName = bucketName;
   }
 }
