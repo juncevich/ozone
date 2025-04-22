@@ -368,7 +368,7 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
               builder.setTraceID(TracingUtil.exportCurrentSpan()).build());
     } else {
       RaftGroupId raftGroupId = generateBucketGroupId(bucketName);
-      LOG.error("Bucket name set for {} request {}", raftGroupId, omRequest.getCmdType());
+//      LOG.error("Bucket name set for {} request {}", raftGroupId, omRequest.getCmdType());
       OmTransport customTransport = customTransports.computeIfAbsent(raftGroupId, k -> {
         try {
           return createOmTransport(serviceId);

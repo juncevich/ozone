@@ -154,7 +154,7 @@ public class OzoneManagerProtocolServerSideTranslatorPB implements
   public OMResponse submitRequest(RpcController controller,
       OMRequest request) throws ServiceException {
     OMRequest validatedRequest;
-    LOG.info("Submitting Hadoop3Om {}", request.getCmdType());
+//    LOG.info("Submitting Hadoop3Om {}", request.getCmdType());
     try {
       validatedRequest = captureLatencyNs(
           perfMetrics.getValidateRequestLatencyNs(),

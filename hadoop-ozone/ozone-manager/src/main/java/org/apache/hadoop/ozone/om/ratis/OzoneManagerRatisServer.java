@@ -182,7 +182,13 @@ public final class OzoneManagerRatisServer {
         .setGroup(this.currentRaftGroup)
         .setProperties(serverProperties)
         .setParameters(parameters)
-        .setStateMachineRegistry(ozoneManager::getStateMachineRegistry)
+        .setStateMachineRegistry(it -> {
+          try {
+            return ozoneManager.getStateMachineRegistry(it);
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+        })
         .setOption(RaftStorage.StartupOption.RECOVER)
         .build();
     this.perfMetrics = om.getPerfMetrics();

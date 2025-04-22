@@ -92,14 +92,14 @@ public class BucketStateMachine extends BaseStateMachine {
 
 //  private final RatisSnapshotInfo snapshotInfo;
 
-  public BucketStateMachine(RaftGroupId raftGroupId, OzoneManager om) {
+  public BucketStateMachine(RaftGroupId raftGroupId, OzoneManager om) throws IOException {
     this.ozoneManager = om;
     this.ozoneManagerDoubleBuffer =  buildDoubleBufferForRatis();
     this.threadNamePrefix = om.getThreadNamePrefix() + "-" + raftGroupId;
     this.currentRaftGroupId = raftGroupId;
 
 //    this.snapshotInfo = (RatisSnapshotInfo) ozoneManager.getTransactionInfo(raftGroupId).toSnapshotInfo();
-
+    loadSnapshotInfoFromDB();
     ThreadFactory build = new ThreadFactoryBuilder().setDaemon(true)
         .setNameFormat(threadNamePrefix +
             "OMBucketStateMachineApplyTransactionThread - %d").build();
@@ -177,7 +177,7 @@ public class BucketStateMachine extends BaseStateMachine {
  */
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-    LOG.info("Apply transaction {}", trx.getLogEntry().getIndex());
+    LOG.info("Apply transaction {} {}", currentRaftGroupId, trx.getLogEntry().getIndex());
     try {
       // For the Leader, the OMRequest is set in trx in startTransaction.
       // For Followers, the OMRequest hast to be converted from the log entry.
@@ -369,7 +369,7 @@ public class BucketStateMachine extends BaseStateMachine {
    * @param flushedEpochs
    */
   public void updateLastAppliedIndex(List<Long> flushedEpochs) {
-    LOG.info("Updated last applied index {}", flushedEpochs);
+    LOG.info("Updated last applied index {} {}", flushedEpochs, currentRaftGroupId);
     Preconditions.checkArgument(flushedEpochs.size() > 0);
     computeAndUpdateLastAppliedIndex(
         flushedEpochs.get(flushedEpochs.size() - 1), -1L, flushedEpochs, true);
@@ -567,7 +567,7 @@ public class BucketStateMachine extends BaseStateMachine {
    */
   @Override
   public void notifyTermIndexUpdated(long currentTerm, long index) {
-    LOG.info("Notify term index updated {} - {}", index, currentTerm);
+    LOG.info("Notify term index updated {} {} - {}", currentRaftGroupId, index, currentTerm);
     // SnapshotInfo should be updated when the term changes.
     // The index here refers to the log entry index and the index in
     // SnapshotInfo represents the snapshotIndex i.e. the index of the last
@@ -633,6 +633,7 @@ public class BucketStateMachine extends BaseStateMachine {
 //        ozoneManager.getTransactionInfo(currentRaftGroupId);
         TransactionInfo.readTransactionInfo(
             ozoneManager.getMetadataManager(), currentRaftGroupId.toString());
+    LOG.info("Found transaction info {} for group {}", transactionInfo, currentRaftGroupId);
     if (transactionInfo != null) {
       final TermIndex ti =  transactionInfo.getTermIndex();
       setLastAppliedTermIndex(ti);
@@ -653,6 +654,7 @@ public class BucketStateMachine extends BaseStateMachine {
     if (statePausedCount.decrementAndGet() == 0) {
       getLifeCycle().startAndTransition(() -> {
         this.ozoneManagerDoubleBuffer = buildDoubleBufferForRatis();
+        handler.updateDoubleBuffer(ozoneManagerDoubleBuffer);
         this.setLastAppliedTermIndex(TermIndex.valueOf(
             newLastAppliedSnapShotTermIndex, newLastAppliedSnaphsotIndex));
         LOG.info("{}: OzoneManagerStateMachine un-pause completed. " +

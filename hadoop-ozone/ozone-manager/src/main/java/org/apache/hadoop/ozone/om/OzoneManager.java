@@ -918,7 +918,12 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     }
     LOG.info("Bucket raft group with raftGroupId: {}", raftGroupId);
     bucketRaftGroup = RaftGroup.valueOf(raftGroupId, createRaftPeerList(omNodeDetails, peerNodesMap, false).getRight());
-    BucketStateMachine stateMachine = new BucketStateMachine(raftGroupId, this);
+    BucketStateMachine stateMachine;
+    try {
+      stateMachine = new BucketStateMachine(raftGroupId, this);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
 
     omRaftGroups.put(raftGroupId, bucketRaftGroup);
     omStateMachines.put(raftGroupId, stateMachine);
@@ -1665,6 +1670,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     certClient.initWithRecovery();
   }
 
+  //Указать здесь для бакетов
   private void initializeRatisDirs(OzoneConfiguration conf) throws IOException {
     if (isRatisEnabled) {
       // Create Ratis storage dir
@@ -2425,7 +2431,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     return transactionInfo.getTransactionIndex();
   }
 
-  public StateMachine getStateMachineRegistry(RaftGroupId raftGroupId) {
+  public StateMachine getStateMachineRegistry(RaftGroupId raftGroupId) throws IOException {
     StateMachine stateMachine = omStateMachines.get(raftGroupId);
     if (stateMachine == null) {
       stateMachine = new BucketStateMachine(raftGroupId, this);
@@ -5179,6 +5185,18 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
   public void awaitDoubleBufferFlush() throws InterruptedException {
     if (isRatisEnabled()) {
       getOmRatisServer().getOmStateMachine().awaitDoubleBufferFlush();
+      getStateMachines().entrySet().stream()
+//          .filter(it -> it.getKey() != getOmRatisServer().getOmStateMachine().getGroupId())
+          .filter(it -> it instanceof BucketStateMachine)
+          .map(it -> (BucketStateMachine) it)
+          .parallel()
+          .forEach(it -> {
+            try {
+              it.awaitDoubleBufferFlush();
+            } catch (InterruptedException e) {
+              throw new RuntimeException(e);
+            }
+          });
     } else {
       getOmServerProtocol().awaitDoubleBufferFlush();
     }

@@ -195,7 +195,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
    */
   @Override
   public void notifyTermIndexUpdated(long currentTerm, long index) {
-    LOG.info("Notify term index updated {} - {}", index, currentTerm);
+    LOG.info("Notify term index updated {} {} - {}", raftGroupId, index, currentTerm);
     // SnapshotInfo should be updated when the term changes.
     // The index here refers to the log entry index and the index in
     // SnapshotInfo represents the snapshotIndex i.e. the index of the last
@@ -334,7 +334,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
    */
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-    LOG.info("Apply transaction {}", trx.getLogEntry().getIndex());
+    LOG.info("Apply transaction {} {}", raftGroupId, trx.getLogEntry().getIndex());
     try {
       // For the Leader, the OMRequest is set in trx in startTransaction.
       // For Followers, the OMRequest hast to be converted from the log entry.
@@ -646,7 +646,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
    * @param flushedEpochs
    */
   public void updateLastAppliedIndex(List<Long> flushedEpochs) {
-    LOG.info("Updated last applied index {}", flushedEpochs);
+    LOG.info("Updated last applied index {} {}", flushedEpochs, raftGroupId);
     Preconditions.checkArgument(flushedEpochs.size() > 0);
     computeAndUpdateLastAppliedIndex(
         flushedEpochs.get(flushedEpochs.size() - 1), -1L, flushedEpochs, true);
