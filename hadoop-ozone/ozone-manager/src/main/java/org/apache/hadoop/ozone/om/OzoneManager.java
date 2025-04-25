@@ -108,7 +108,6 @@ import org.apache.hadoop.ozone.om.upgrade.OMLayoutFeature;
 import org.apache.hadoop.ozone.security.acl.OzoneAuthorizerFactory;
 import org.apache.hadoop.ozone.snapshot.CancelSnapshotDiffResponse;
 import org.apache.hadoop.ozone.snapshot.SnapshotDiffResponse;
-import org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew;
 import org.apache.hadoop.ozone.util.OzoneNetUtils;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.hdds.scm.ha.SCMNodeInfo;
@@ -309,7 +308,7 @@ import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.PERM
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.TOKEN_ERROR_OTHER;
 import static org.apache.hadoop.ozone.om.s3.S3SecretStoreConfigurationKeys.DEFAULT_SECRET_STORAGE_TYPE;
 import static org.apache.hadoop.ozone.om.s3.S3SecretStoreConfigurationKeys.S3_SECRET_STORAGE_TYPE;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateBucketGroupId;
+import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateLimitedRaftGroupId;
 import static org.apache.hadoop.security.UserGroupInformation.getCurrentUser;
 import static org.apache.hadoop.util.ExitUtil.terminate;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
@@ -340,9 +339,6 @@ import org.apache.ratis.util.JvmPauseMonitor;
 import org.apache.ratis.util.LifeCycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.hadoop.ozone.om.ratis.BucketStateMachine;
-import java.util.function.BiFunction;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateBucketGroupId;
 
 /**
  * Ozone Manager is the metadata manager of ozone.
@@ -870,49 +866,11 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     }
   }
 
-//  public Map<RaftGroupId, StateMachine> getStateMachines() {
-//    return omStateMachines;
-//  }
-
-//  public Map<RaftGroupId, RaftGroup> getOmRaftGroups() {
-//    return omRaftGroups;
-//  }
-
-//  private VolumeIterator<OmVolumeArgs> getVolumeIterator() {
-//    return new VolumeIterator<>(null, null, null, 1024, (user, volPrefix1, prevVolume1, listSize1) ->
-//        listAllVolumes(null, null, listSize1));
-//  }
-//
-//  private BucketIterator<OmBucketInfo> getBucketIterator(String volume) {
-//    return new BucketIterator<>(volume, null, null, false, 1024,
-//        (volName, startBucket, prevBucket, listSize, hasSnapshot) ->
-//        {
-//          try {
-//            return listBuckets(volName, startBucket, prevBucket, listSize, hasSnapshot);
-//          } catch (IOException e) {
-//            throw new RuntimeException(e);
-//          }
-//        });
-//  }
-
-//  private void initializeBucketRaftGroups() throws IOException {
-//    LOG.info("Initializing ozone buckets raft groups");
-//    Iterator<OmVolumeArgs> volumeIterator = getVolumeIterator();
-//    while (volumeIterator.hasNext()) {
-//      OmVolumeArgs volume = volumeIterator.next();
-//      Iterator<OmBucketInfo> bucketIterator = getBucketIterator(volume.getVolume());
-//      while (bucketIterator.hasNext()) {
-//        OmBucketInfo bucket = bucketIterator.next();
-//        initBucketRaftGroupAndStateMachine(bucket.getBucketName());
-//      }
-//    }
-//  }
-
   public Pair<RaftGroup, Boolean> initBucketRaftGroupAndStateMachine(String bucketName) {
     RaftGroup bucketRaftGroup;
 //    LOG.info("Create raft group for bucket: {}", bucketName);
 //    LOG.info("Bucket raft group with raftGroupIdUUID: {}", raftGroupIdUUID);
-    RaftGroupId raftGroupId = generateBucketGroupId(bucketName);
+    RaftGroupId raftGroupId = generateLimitedRaftGroupId(bucketName);
     if (omRaftGroups.containsKey(raftGroupId)) {
       return Pair.of(omRaftGroups.get(raftGroupId), false);
     }
@@ -930,8 +888,6 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     return Pair.of(bucketRaftGroup, true);
   }
 
-
-
   public Map<RaftGroupId, StateMachine> getStateMachines() {
     return omStateMachines;
   }
@@ -939,23 +895,6 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
   public Map<RaftGroupId, RaftGroup> getOmRaftGroups() {
     return omRaftGroups;
   }
-
-//  private VolumeIterator<OmVolumeArgs> getVolumeIterator() {
-//    return new VolumeIterator<>(null, null, null, 1024, (user, volPrefix1, prevVolume1, listSize1) ->
-//        listAllVolumes(null, null, listSize1));
-//  }
-//
-//  private BucketIterator<OmBucketInfo> getBucketIterator(String volume) {
-//    return new BucketIterator<>(volume, null, null, false, 1024,
-//        (volName, startBucket, prevBucket, listSize, hasSnapshot) ->
-//        {
-//          try {
-//            return listBuckets(volName, startBucket, prevBucket, listSize, hasSnapshot);
-//          } catch (IOException e) {
-//            throw new RuntimeException(e);
-//          }
-//        });
-//  }
 
   public boolean isStopped() {
     return omState == State.STOPPED;
@@ -1670,31 +1609,30 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     certClient.initWithRecovery();
   }
 
-  //Указать здесь для бакетов
   private void initializeRatisDirs(OzoneConfiguration conf) throws IOException {
     if (isRatisEnabled) {
       // Create Ratis storage dir
       String omRatisDirectory =
-          OzoneManagerRatisUtils.getOMRatisDirectory(conf);
+              OzoneManagerRatisUtils.getOMRatisDirectory(conf);
       if (omRatisDirectory == null || omRatisDirectory.isEmpty()) {
         throw new IllegalArgumentException(HddsConfigKeys.OZONE_METADATA_DIRS +
-            " must be defined.");
+                " must be defined.");
       }
       OmUtils.createOMDir(omRatisDirectory);
 
       String scmStorageDir = SCMHAUtils.getRatisStorageDir(conf);
       if (!Strings.isNullOrEmpty(omRatisDirectory) && !Strings
-          .isNullOrEmpty(scmStorageDir) && omRatisDirectory
-          .equals(scmStorageDir)) {
+              .isNullOrEmpty(scmStorageDir) && omRatisDirectory
+              .equals(scmStorageDir)) {
         throw new IOException(
-            "Path of " + OMConfigKeys.OZONE_OM_RATIS_STORAGE_DIR + " and "
-                + ScmConfigKeys.OZONE_SCM_HA_RATIS_STORAGE_DIR
-                + " should not be co located. Please change atleast one path.");
+                "Path of " + OMConfigKeys.OZONE_OM_RATIS_STORAGE_DIR + " and "
+                        + ScmConfigKeys.OZONE_SCM_HA_RATIS_STORAGE_DIR
+                        + " should not be co located. Please change atleast one path.");
       }
 
       // Create Ratis snapshot dir
       omRatisSnapshotDir = OmUtils.createOMDir(
-          OzoneManagerRatisUtils.getOMRatisSnapshotDirectory(conf));
+              OzoneManagerRatisUtils.getOMRatisSnapshotDirectory(conf));
 
       // Before starting ratis server, check if previous installation has
       // snapshot directory in Ratis storage directory. if yes, move it to
@@ -1704,54 +1642,15 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
 
       if (snapshotDir.isDirectory()) {
         FileUtils.moveDirectory(snapshotDir.toPath(),
-            omRatisSnapshotDir.toPath());
-      }
-
-//      File omRatisDir = new File(omRatisDirectory);
-//      String groupIDfromServiceID = OzoneManagerRatisUtilsNew.generateBucketGroupId(getOMServiceId()).getUuid().toString();
-
-      // If a directory exists in ratis storage dir
-      // Check the Ratis group Dir is same as the one generated from
-      // om service id.
-
-      // This will help to catch if some one has changed service id later on.
-//      File[] ratisDirFiles = omRatisDir.listFiles();
-//      if (ratisDirFiles != null) {
-//        boolean isExistsRaftGroupIdFromServiceId = Arrays.stream(ratisDirFiles)
-//                .filter(File::isDirectory)
-//                .anyMatch(dir -> dir.getName().equals(groupIDfromServiceID));
-//        if (!isExistsRaftGroupIdFromServiceId) {
-//          throw new IOException("Ratis groups Dir on disk does not match with RaftGroupID"
-//                  + groupIDfromServiceID + " generated from service id "
-//                  + getOMServiceId() + ". Looks like there is a change to " +
-//                  OMConfigKeys.OZONE_OM_SERVICE_IDS_KEY + " value after the " +
-//                  "cluster is setup. Currently change to this value is not " +
-//                  "supported.");
-//        }
-//        for (File ratisGroupDir : ratisDirFiles) {
-//          if (ratisGroupDir.isDirectory()) {
-//            if (!ratisGroupDir.getName().equals(groupIDfromServiceID)) {
-//              throw new IOException("Ratis group Dir on disk "
-//                  + ratisGroupDir.getName() + " does not match with RaftGroupID"
-//                  + groupIDfromServiceID + " generated from service id "
-//                  + getOMServiceId() + ". Looks like there is a change to " +
-//                  OMConfigKeys.OZONE_OM_SERVICE_IDS_KEY + " value after the " +
-//                  "cluster is setup. Currently change to this value is not " +
-//                  "supported.");
-//            }
-//          } else {
-//            LOG.warn("Unknown file {} exists in ratis storage dir {}."
-//                + " It is recommended not to share the ratis storage dir.",
-//                ratisGroupDir, omRatisDir);
-//          }
-//        }
-      }
-
-      if (peerNodesMap != null && !peerNodesMap.isEmpty()) {
-        this.omRatisSnapshotProvider = new OmRatisSnapshotProvider(
-            configuration, omRatisSnapshotDir, peerNodesMap);
+                omRatisSnapshotDir.toPath());
       }
     }
+
+    if (peerNodesMap != null && !peerNodesMap.isEmpty()) {
+      this.omRatisSnapshotProvider = new OmRatisSnapshotProvider(
+              configuration, omRatisSnapshotDir, peerNodesMap);
+    }
+  }
 
 
 
@@ -1893,8 +1792,6 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
         omRpcAddress));
 
     metadataManager.start(configuration);
-
-//    initializeBucketRaftGroups();
 
     // Start Ratis services
     if (omRatisServer != null) {
@@ -2451,10 +2348,6 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
       omStateMachines.put(raftGroupId, stateMachine);
     }
     return stateMachine;
-  }
-
-  public String getStateMachineThreadPrefix() {
-    return threadPrefix;
   }
 
   /**
@@ -5185,18 +5078,18 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
   public void awaitDoubleBufferFlush() throws InterruptedException {
     if (isRatisEnabled()) {
       getOmRatisServer().getOmStateMachine().awaitDoubleBufferFlush();
-      getStateMachines().entrySet().stream()
-//          .filter(it -> it.getKey() != getOmRatisServer().getOmStateMachine().getGroupId())
-          .filter(it -> it instanceof BucketStateMachine)
-          .map(it -> (BucketStateMachine) it)
-          .parallel()
-          .forEach(it -> {
-            try {
-              it.awaitDoubleBufferFlush();
-            } catch (InterruptedException e) {
-              throw new RuntimeException(e);
-            }
-          });
+//      getStateMachines().entrySet().stream()
+////          .filter(it -> it.getKey() != getOmRatisServer().getOmStateMachine().getGroupId())
+//          .filter(it -> it instanceof BucketStateMachine)
+//          .map(it -> (BucketStateMachine) it)
+//          .parallel()
+//          .forEach(it -> {
+//            try {
+//              it.awaitDoubleBufferFlush();
+//            } catch (InterruptedException e) {
+//              throw new RuntimeException(e);
+//            }
+//          });
     } else {
       getOmServerProtocol().awaitDoubleBufferFlush();
     }

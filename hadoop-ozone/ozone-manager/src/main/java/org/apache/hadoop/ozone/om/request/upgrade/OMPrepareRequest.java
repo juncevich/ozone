@@ -31,9 +31,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMReque
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateBucketGroupId;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateBucketGroupId;
-import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils;
+import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateLimitedRaftGroupId;
 import org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew;
 import org.apache.ratis.protocol.RaftGroupId;
 
@@ -48,10 +46,7 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils;
-import org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew;
-import org.apache.ratis.protocol.RaftGroupId;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateBucketGroupId;
+import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateRaftGroupId;
 
 /**
  * OM Request used to flush all transactions to disk, take a DB snapshot, and
@@ -112,10 +107,10 @@ public class OMPrepareRequest extends OMClientRequest {
       String bucketName = OzoneManagerRatisUtilsNew.getBucketName(omRequest);
       RaftGroupId raftGroupId = null;
       if (bucketName != null) {
-        raftGroupId = generateBucketGroupId(bucketName);
+        raftGroupId = generateLimitedRaftGroupId(bucketName);
         doubleBuffer = ozoneManager.getOmRatisServer().getBucketStateMachine(raftGroupId).getOzoneManagerDoubleBuffer();
       } else {
-        raftGroupId = generateBucketGroupId(ozoneManager.getOMServiceId());
+        raftGroupId = generateRaftGroupId(ozoneManager.getOMServiceId());
         doubleBuffer = ozoneManager.getOmRatisServer().getOmStateMachine().getOzoneManagerDoubleBuffer();
       }
       doubleBuffer.add(response, transactionLogIndex);

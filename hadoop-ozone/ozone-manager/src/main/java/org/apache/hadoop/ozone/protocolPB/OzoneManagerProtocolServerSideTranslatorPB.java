@@ -20,8 +20,9 @@ import static org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer.RaftServe
 import static org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer.RaftServerStatus.NOT_LEADER;
 import static org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils.createClientRequest;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.PrepareStatus;
+import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateRaftGroupId;
 import static org.apache.hadoop.util.MetricUtil.captureLatencyNs;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateBucketGroupId;
+import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateLimitedRaftGroupId;
 import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.getBucketName;
 import org.apache.ratis.protocol.RaftGroupId;
 
@@ -220,11 +221,6 @@ public class OzoneManagerProtocolServerSideTranslatorPB implements
         return submitReadRequestToOM(request);
       }
 
-      // To validate credentials we have already verified leader status.
-      // This will skip of checking leader status again if request has S3Auth.
-//      if (!s3Auth) {
-//        OzoneManagerRatisUtils.checkLeaderStatus(ozoneManager);
-//      }
       OMRequest requestToSubmit;
       try {
         omClientRequest = createClientRequest(request, ozoneManager);
@@ -232,23 +228,10 @@ public class OzoneManagerProtocolServerSideTranslatorPB implements
         RaftGroupId raftGroupId = null;
         LOG.info("Continue internal processing request {}, bucket {}", request.getCmdType(), omClientRequest.getWriteReqBucketName());
         if (omClientRequest.getWriteReqBucketName() != null) {
-//          raftGroupId = generateBucketGroupIdLimited(omClientRequest.getWriteReqBucketName());
-          raftGroupId = generateBucketGroupId(omClientRequest.getWriteReqBucketName());
-//          LOG.info("Generated raft group id {}. Bucket name: {}",
-//              raftGroupId,
-//              omClientRequest.getWriteReqBucketName()
-//          );
+          raftGroupId = generateLimitedRaftGroupId(omClientRequest.getWriteReqBucketName());
         } else {
-          raftGroupId = generateBucketGroupId(ozoneManager.getOMServiceId());
-//          LOG.info("Generated raft group id {}. Service name: {}",
-//              raftGroupId,
-//              omClientRequest.getWriteReqBucketName()
-//          );
+          raftGroupId = generateRaftGroupId(ozoneManager.getOMServiceId());
         }
-//        final OMResponse cached = omRatisServer.checkRetryCache(raftGroupId);
-//        if (cached != null) {
-//          return cached;
-//        }
         // To validate credentials we have already verified leader status.
         // This will skip of checking leader status again if request has S3Auth.
         if (!s3Auth) {
@@ -268,9 +251,13 @@ public class OzoneManagerProtocolServerSideTranslatorPB implements
         return createErrorResponse(request, ex);
       }
 
-      final OMResponse response = omRatisServer.submitRequest(requestToSubmit,
-              omClientRequest.getWriteReqBucketName() != null ?
-                      omClientRequest.getWriteReqBucketName() : ozoneManager.getOMServiceId());
+      final OMResponse response;
+      if (omClientRequest.getWriteReqBucketName() == null) {
+        response = omRatisServer.submitRequest(requestToSubmit, ozoneManager.getOMServiceId());
+      } else {
+        response = omRatisServer.submitBucketWriteRequest(requestToSubmit, omClientRequest.getWriteReqBucketName());
+      }
+
       if (!response.getSuccess()) {
         omClientRequest.handleRequestFailure(ozoneManager);
       }
@@ -291,14 +278,6 @@ public class OzoneManagerProtocolServerSideTranslatorPB implements
     return lastRequestToSubmit;
   }
 
-//  /**
-//   * Submits request to OM's Ratis server.
-//   */
-//  private OMResponse submitRequestToRatis(OMRequest request)
-//      throws ServiceException {
-//    return omRatisServer.submitRequest(request);
-//  }
-
   private OMResponse submitReadRequestToOM(OMRequest request)
       throws ServiceException {
     LOG.info("Submitting request to OM {}", request.getCmdType());
@@ -307,7 +286,7 @@ public class OzoneManagerProtocolServerSideTranslatorPB implements
     if (bucketName == null) {
       raftGroupId = omRatisServer.getCurrentRaftGroupId();
     } else {
-      raftGroupId = generateBucketGroupId(bucketName);
+      raftGroupId = generateLimitedRaftGroupId(bucketName);
     }
     RaftServerStatus raftServerStatus = omRatisServer.checkLeaderStatus(raftGroupId);
     if (raftServerStatus == LEADER_AND_READY ||

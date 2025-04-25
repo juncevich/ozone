@@ -96,9 +96,6 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.protocol.ClientId;
 import org.rocksdb.RocksDBException;
-import java.nio.charset.StandardCharsets;
-import java.util.UUID;
-import org.apache.hadoop.ozone.om.request.key.OMKeyRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 
 import java.io.IOException;
@@ -106,27 +103,16 @@ import java.nio.file.Path;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.nio.charset.StandardCharsets;
-import java.util.UUID;
-import org.apache.hadoop.ozone.om.request.key.OMKeyRequest;
-import org.apache.ratis.protocol.RaftGroupId;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_RATIS_SNAPSHOT_DIR;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_RATIS_SNAPSHOT_DIR;
 import static org.apache.hadoop.ozone.om.OzoneManagerUtils.getBucketLayout;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateBucketGroupId;
-import java.nio.charset.StandardCharsets;
-import java.util.UUID;
-import org.apache.hadoop.ozone.om.request.key.OMKeyRequest;
-import org.apache.ratis.protocol.RaftGroupId;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateBucketGroupId;
+import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateRaftGroupId;
 
 /**
  * Utility class used by OzoneManager HA.
@@ -507,7 +493,7 @@ public final class OzoneManagerRatisUtils {
       throws ServiceException {
     LOG.info("Check leader status for OM");
     try {
-      RaftGroupId raftGroupId = generateBucketGroupId(ozoneManager.getOMServiceId());
+      RaftGroupId raftGroupId = generateRaftGroupId(ozoneManager.getOMServiceId());
       ozoneManager.checkLeaderStatus(raftGroupId);
     } catch (OMNotLeaderException | OMLeaderNotReadyException e) {
       LOG.debug(e.getMessage());
@@ -526,11 +512,6 @@ public final class OzoneManagerRatisUtils {
     }
   }
 
-//  public static RaftGroupId generateBucketGroupId(String raftGroupPlainStr) {
-//    UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(raftGroupPlainStr.getBytes(StandardCharsets.UTF_8));;
-//    return RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
-//  }
-
   public static GrpcTlsConfig createServerTlsConfig(SecurityConfig conf,
       CertificateClient caClient) throws IOException {
     if (conf.isSecurityEnabled() && conf.isGrpcTlsEnabled()) {
@@ -540,13 +521,6 @@ public final class OzoneManagerRatisUtils {
     }
 
     return null;
-  }
-
-  public static OzoneManagerProtocolProtos.OMResponse submitRequest(
-          OzoneManager om, OMRequest omRequest, String raftGroupToHandleRequest)
-          throws ServiceException {
-    LOG.info("Submit request in Ratis Utils 1 {}", omRequest.getCmdType());
-    return om.getOmRatisServer().submitRequest(omRequest, raftGroupToHandleRequest);
   }
 
   public static OzoneManagerProtocolProtos.OMResponse submitRequest(

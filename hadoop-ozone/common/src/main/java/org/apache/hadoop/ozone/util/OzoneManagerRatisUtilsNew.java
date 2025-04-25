@@ -17,26 +17,27 @@ public final class OzoneManagerRatisUtilsNew {
   private static final Logger LOG =
           LoggerFactory.getLogger(OzoneManagerRatisUtilsNew.class);
 
+  //TODO Maybe it needs change map to cache
   private static final  Map<String, RaftGroupId> GROUP_ID_MAP = new ConcurrentHashMap<>();
 
   private OzoneManagerRatisUtilsNew() {
   }
 
-  public static RaftGroupId generateBucketGroupId(String raftGroupPlainStr) {
-    return GROUP_ID_MAP.computeIfAbsent(raftGroupPlainStr, (k) -> {
-      UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(raftGroupPlainStr.getBytes(StandardCharsets.UTF_8));
-      LOG.info("Generate bucket group id {}", raftGroupPlainStr);
+  public static RaftGroupId generateLimitedRaftGroupId(String raftGroupPlainStr) {
+    String groupNumber = String.valueOf(raftGroupPlainStr.hashCode() % 4);
+    return GROUP_ID_MAP.computeIfAbsent(groupNumber, (k) -> {
+      UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(groupNumber.getBytes(StandardCharsets.UTF_8));
+      LOG.trace("Generate bucket group id {}, group number {}, generated uuid {}", raftGroupPlainStr, groupNumber, raftGroupIdFromOmServiceId);
       return RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
     });
-//    if (groupIdMap.containsKey(raftGroupPlainStr)) {
-//      return groupIdMap.get(raftGroupPlainStr);
-//    } else {
-//      UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(raftGroupPlainStr.getBytes(StandardCharsets.UTF_8));
-//      RaftGroupId raftGroupId = RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
-//      groupIdMap.put(raftGroupPlainStr, raftGroupId);
-//      return raftGroupId;
-//    }
+  }
 
+  public static RaftGroupId generateRaftGroupId(String raftGroupPlainStr) {
+    return GROUP_ID_MAP.computeIfAbsent(raftGroupPlainStr, (k) -> {
+      UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(raftGroupPlainStr.getBytes(StandardCharsets.UTF_8));
+      LOG.trace("Generate bucket group id {}, generated uuid {}", raftGroupPlainStr, raftGroupIdFromOmServiceId);
+      return RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
+    });
   }
 
   @SuppressWarnings("checkstyle:methodlength")

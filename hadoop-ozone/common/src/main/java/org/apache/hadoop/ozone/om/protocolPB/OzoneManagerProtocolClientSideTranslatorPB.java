@@ -246,7 +246,7 @@ import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.TOKE
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.ACCESS_DENIED;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.DIRECTORY_ALREADY_EXISTS;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.OK;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateBucketGroupId;
+import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateLimitedRaftGroupId;
 import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.getBucketName;
 
 /**
@@ -367,7 +367,7 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
       response = transport.submitRequest(
               builder.setTraceID(TracingUtil.exportCurrentSpan()).build());
     } else {
-      RaftGroupId raftGroupId = generateBucketGroupId(bucketName);
+      RaftGroupId raftGroupId = generateLimitedRaftGroupId(bucketName);
 //      LOG.error("Bucket name set for {} request {}", raftGroupId, omRequest.getCmdType());
       OmTransport customTransport = customTransports.computeIfAbsent(raftGroupId, k -> {
         try {
