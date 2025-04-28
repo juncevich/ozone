@@ -301,7 +301,6 @@ public class TrashPolicyOzone extends TrashPolicyDefault {
     @Override
     public void run() {
       if (emptierInterval == 0) {
-        LOG.info("Disabled");
         return;                                   // trash disabled
       }
       long now, end;
@@ -317,7 +316,6 @@ public class TrashPolicyOzone extends TrashPolicyDefault {
           }
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
-          LOG.info("Exiting because of interruption", e);
           break;                                  // exit on interrupt
         }
 
@@ -327,9 +325,7 @@ public class TrashPolicyOzone extends TrashPolicyDefault {
           if (now >= end) {
             Collection<FileStatus> trashRoots;
             trashRoots = fs.getTrashRoots(true); // list all trash dirs
-            LOG.info("Trash root Size: {}", trashRoots.size());
             for (FileStatus trashRoot : trashRoots) {  // dump each trash
-              LOG.info("Trashroot: {}", trashRoot.getPath());
               if (!trashRoot.isDirectory()) {
                 continue;
               }
@@ -346,7 +342,6 @@ public class TrashPolicyOzone extends TrashPolicyDefault {
         }
       }
       try {
-        LOG.info("Closing emptier");
         fs.close();
       } catch (IOException e) {
         LOG.warn("Trash cannot close FileSystem: ", e);

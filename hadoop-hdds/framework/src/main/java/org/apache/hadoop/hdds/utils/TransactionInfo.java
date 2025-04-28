@@ -75,10 +75,6 @@ public final class TransactionInfo {
     return valueOf(TermIndex.valueOf(currentTerm, transactionIndex));
   }
 
-//  public static TransactionInfo valueOf(TermIndex termIndex) {
-//    return new TransactionInfo(termIndex.getTerm() + TRANSACTION_INFO_SPLIT_KEY + termIndex.getIndex());
-//  }
-
   public static TransactionInfo valueOf(TermIndex termIndex) {
     return new TransactionInfo(termIndex.getTerm() + TRANSACTION_INFO_SPLIT_KEY + termIndex.getIndex());
   }
@@ -125,9 +121,6 @@ public final class TransactionInfo {
     return term + TRANSACTION_INFO_SPLIT_KEY + transactionIndex;
   }
 
-  private static String generateTransactionInfo(TermIndex termIndex) {
-    return termIndex.getTerm() + TRANSACTION_INFO_SPLIT_KEY + termIndex.getIndex();
-  }
   /**
    * Convert OMTransactionInfo to byteArray to be persisted to OM DB.
    * @return byte[]
@@ -190,8 +183,6 @@ public final class TransactionInfo {
     return metadataManager.getTransactionInfoTable().get(TRANSACTION_INFO_KEY + raftGroupId);
   }
 
-
-
   public SnapshotInfo toSnapshotInfo() {
     return new RatisSnapshotInfo(term, transactionIndex);
   }
@@ -219,6 +210,5 @@ public final class TransactionInfo {
     public TransactionInfo build() {
       return new TransactionInfo(currentTerm + TRANSACTION_INFO_SPLIT_KEY + transactionIndex);
     }
-
   }
 }

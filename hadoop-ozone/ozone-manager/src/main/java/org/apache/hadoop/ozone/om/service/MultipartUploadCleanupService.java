@@ -18,7 +18,6 @@
  */
 
 package org.apache.hadoop.ozone.om.service;
-import org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
@@ -30,7 +29,6 @@ import org.apache.hadoop.ozone.om.KeyManager;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils;
-import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.ExpiredMultipartUploadsBucket;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.MultipartUploadsExpiredAbortRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
@@ -39,7 +37,6 @@ import org.apache.hadoop.util.Time;
 import org.apache.ratis.protocol.ClientId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -147,7 +144,7 @@ public class MultipartUploadCleanupService extends BackgroundService {
     return ozoneManager.isRatisEnabled();
   }
 
-  private class MultipartUploadCleanupTask implements BackgroundTask {
+  private final class MultipartUploadCleanupTask implements BackgroundTask {
 
     @Override
     public int getPriority() {
@@ -207,11 +204,15 @@ public class MultipartUploadCleanupService extends BackgroundService {
 
     private void submitRequest(OMRequest omRequest) {
       try {
-        OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, clientId, runCount.get(),
-                ozoneManager.getOMServiceId());
+        if (isRatisEnabled()) {
+          OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, clientId, runCount.get(),
+              ozoneManager.getOMServiceId());
+        } else {
+          ozoneManager.getOmServerProtocol().submitRequest(null, omRequest);
+        }
       } catch (ServiceException e) {
         LOG.error("Expired multipart info delete request failed. " +
-            "Will retry at next run.", e);
+                  "Will retry at next run.", e);
       }
     }
   }

@@ -26,7 +26,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 
 import static org.apache.hadoop.ozone.om.upgrade.OMLayoutFeature.QUOTA;
 import static org.apache.hadoop.ozone.upgrade.LayoutFeature.UpgradeActionType.ON_FIRST_UPGRADE_START;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateRaftGroupId;
+import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.generateRaftGroupId;
 
 /**
  * Quota repair for usages action to be triggered during first upgrade.

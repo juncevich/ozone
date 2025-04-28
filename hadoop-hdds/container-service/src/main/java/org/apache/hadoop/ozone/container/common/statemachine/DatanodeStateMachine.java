@@ -507,7 +507,7 @@ public class DatanodeStateMachine implements Closeable {
 
     /**
      * The last state of endpoint states.
-     *e
+     *
      * @return last state.
      */
     public static DatanodeStates getLastState() {

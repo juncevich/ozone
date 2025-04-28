@@ -40,7 +40,6 @@ import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.SnapshotInfo;
 import org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer;
-import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServerConfig;
 import org.apache.hadoop.ozone.om.snapshot.ReferenceCounted;
 import org.apache.hadoop.ozone.snapshot.SnapshotDiffReportOzone;
@@ -600,7 +599,7 @@ public class TestSnapshotBackgroundServices {
     GenericTestUtils.waitFor(() -> {
       try {
         UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(
-            leaderOM.getOMServiceId().getBytes(StandardCharsets.UTF_8));;
+            leaderOM.getOMServiceId().getBytes(StandardCharsets.UTF_8));
         RaftGroupId raftGroupId = RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
         followerOM.checkLeaderStatus(raftGroupId);
         return true;

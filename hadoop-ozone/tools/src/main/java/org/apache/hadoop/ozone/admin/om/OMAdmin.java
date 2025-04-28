@@ -118,7 +118,9 @@ public class OMAdmin extends GenericCli implements SubcommandWithParent {
     String clientId = ClientId.randomId().toString();
     if (!forceHA || (forceHA && OmUtils.isOmHAServiceId(conf, omServiceID))) {
       OmTransport omTransport = new Hadoop3OmTransportFactory().createOmTransport(conf, parent.getUser(), omServiceID);
-      return new OzoneManagerProtocolClientSideTranslatorPB(omTransport, clientId, conf, parent.getUser(), omServiceID);
+      return new OzoneManagerProtocolClientSideTranslatorPB(
+              omTransport, clientId, conf, parent.getUser(), omServiceID
+      );
     } else {
       throw new OzoneClientException("This command works only on OzoneManager" +
             " HA cluster. Service ID specified does not match" +

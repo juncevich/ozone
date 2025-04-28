@@ -392,7 +392,6 @@ public class OzoneManagerRequestHandler implements RequestHandler {
   @Override
   public OMClientResponse handleWriteRequest(OMRequest omRequest,
       long transactionLogIndex) throws IOException {
-    LOG.info("Try to handle write request {}", omRequest.getCmdType());
     injectPause();
     OMClientRequest omClientRequest =
         OzoneManagerRatisUtils.createClientRequest(omRequest, impl);

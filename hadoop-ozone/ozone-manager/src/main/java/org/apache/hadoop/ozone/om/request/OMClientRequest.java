@@ -78,7 +78,6 @@ public abstract class OMClientRequest implements RequestAuditor {
   private InetAddress inetAddress;
   private final ThreadLocal<OMLockDetails> omLockDetails =
       ThreadLocal.withInitial(OMLockDetails::new);
-  private String bucketName;
   /**
    * Stores the result of request execution in
    * OMClientRequest#validateAndUpdateCache.
@@ -115,7 +114,7 @@ public abstract class OMClientRequest implements RequestAuditor {
         .setLayoutVersion(layoutVersion).build();
     return omRequest;
   }
-
+  private String writeBucketName;
   /**
    * Performs any request specific failure handling during request
    * submission. An example of this would be an undo of any steps
@@ -576,10 +575,10 @@ public abstract class OMClientRequest implements RequestAuditor {
   }
 
   public String getWriteReqBucketName() {
-    return bucketName;
+    return writeBucketName;
   }
 
   public void setWriteReqBucketName(String bucketName) {
-    this.bucketName = bucketName;
+    this.writeBucketName = bucketName;
   }
 }

@@ -40,7 +40,6 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
 import org.apache.hadoop.ozone.om.helpers.SnapshotInfo;
 import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils;
-import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils;
 import org.apache.hadoop.ozone.om.request.file.OMFileRequest;
 import org.apache.hadoop.ozone.om.snapshot.ReferenceCounted;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
@@ -121,7 +120,7 @@ public class SnapshotDirectoryCleaningService
     return queue;
   }
 
-  private class SnapshotDirTask implements BackgroundTask {
+  private final class SnapshotDirTask implements BackgroundTask {
 
     @Override
     public BackgroundTaskResult call() {
@@ -434,18 +433,23 @@ public class SnapshotDirectoryCleaningService
 
   public void submitRequest(OMRequest omRequest, ClientId clientId) {
     try {
-      OzoneManagerRatisUtils.submitRequest(getOzoneManager(), omRequest, clientId, getRunCount().get(),
-              getOzoneManager().getOMServiceId());
+      if (isRatisEnabled()) {
+        OzoneManagerRatisUtils.submitRequest(getOzoneManager(), omRequest, clientId, getRunCount().get(),
+            getOzoneManager().getOMServiceId());
+      } else {
+        getOzoneManager().getOmServerProtocol()
+            .submitRequest(null, omRequest);
+      }
     } catch (ServiceException e) {
       LOG.error("Snapshot deep cleaning request failed. " +
-          "Will retry at next run.", e);
+                "Will retry at next run.", e);
     }
   }
 
   /**
    * Stack node data for directory deep clean for snapshot.
    */
-  private static class StackNode {
+  private static final class StackNode {
     private String dirKey;
     private OmDirectoryInfo dirValue;
     private String subDirSeek;

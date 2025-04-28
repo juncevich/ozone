@@ -246,8 +246,9 @@ import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.TOKE
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.ACCESS_DENIED;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.DIRECTORY_ALREADY_EXISTS;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.OK;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateLimitedRaftGroupId;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.getBucketName;
+import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.generateLimitedRaftGroupId;
+import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.getBucketName;
+import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.isMultiRaftEnabled;
 
 /**
  * The client side implementation of OzoneManagerProtocol.
@@ -271,12 +272,11 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
   private final UserGroupInformation ugi;
 
   public OzoneManagerProtocolClientSideTranslatorPB(OmTransport omTransport,
-      String clientId,
+                                                    String clientId,
                                                     ConfigurationSource conf,
                                                     UserGroupInformation ugi,
                                                     String serviceId
-                                                    ) {
-//    LOG.error("Create protobuf client side translator");
+  ) {
     this.clientID = clientId;
     this.transport = omTransport;
     this.s3AuthCheck = false;
@@ -301,7 +301,6 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
    */
   @Override
   public void close() throws IOException {
-//    LOG.error("Close client side translator");
     //transport is not reusable
     transport.close();
     customTransports.forEach((k, v) -> {
@@ -362,15 +361,16 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
 
     String bucketName = getBucketName(omRequest);
     OMResponse response;
-    if (bucketName == null) {
-//      LOG.error("Bucket name not set for request {}", omRequest.getCmdType());
+    if (!isMultiRaftEnabled() || (bucketName == null && isMultiRaftEnabled())) {
+      LOG.trace("Bucket name not set for request {}", omRequest.getCmdType());
       response = transport.submitRequest(
               builder.setTraceID(TracingUtil.exportCurrentSpan()).build());
     } else {
       RaftGroupId raftGroupId = generateLimitedRaftGroupId(bucketName);
-//      LOG.error("Bucket name set for {} request {}", raftGroupId, omRequest.getCmdType());
+      LOG.trace("Bucket name set for {} request {}", raftGroupId, omRequest.getCmdType());
       OmTransport customTransport = customTransports.computeIfAbsent(raftGroupId, k -> {
         try {
+          //Should be serviceId because of correct addressation when not leader exception in multi Raft
           return createOmTransport(serviceId);
         } catch (IOException e) {
           LOG.error("Error omTransport creating for group {}", raftGroupId, e);
@@ -386,247 +386,6 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
 
     return response;
   }
-
-//  public static RaftGroupId generateBucketGroupId(String raftGroupPlainStr) {
-//    UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(raftGroupPlainStr.getBytes(StandardCharsets.UTF_8));
-//    return RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
-//  }
-
-//  public static RaftGroupId generateBucketGroupId(String raftGroupPlainStr) {
-//    UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(raftGroupPlainStr.getBytes(StandardCharsets.UTF_8));
-//    return RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
-//  }
-
-//  @SuppressWarnings("checkstyle:methodlength")
-//  public static String getBucketName(OMRequest omRequest) throws IOException {
-//
-//    // Handling of exception by createClientRequest(OMRequest, OzoneManger):
-//    // Either the code will take FSO or non FSO path, both classes has a
-//    // validateAndUpdateCache() function which also contains
-//    // validateBucketAndVolume() function which validates bucket and volume and
-//    // throws necessary exceptions if required. validateAndUpdateCache()
-//    // function has catch block which catches the exception if required and
-//    // handles it appropriately.
-//    Type cmdType = omRequest.getCmdType();
-//    OzoneManagerProtocolProtos.KeyArgs keyArgs;
-//    switch (cmdType) {
-//    case CreateVolume:
-//    case SetVolumeProperty:
-//    case DeleteVolume:
-//    case CreateBucket:
-//    case DeleteBucket:
-//    case SetBucketProperty:
-//    case AddAcl:
-//    case RemoveAcl:
-//    case SetAcl:
-//    case GetDelegationToken:
-//    case CancelDelegationToken:
-//    case RenewDelegationToken:
-//    case GetS3Secret:
-//    case FinalizeUpgrade:
-//    case Prepare:
-//    case CancelPrepare:
-//    case SetS3Secret:
-//    case RevokeS3Secret:
-//    case PurgeKeys:
-//    case PurgeDirectories:
-//    case CreateTenant:
-//    case DeleteTenant:
-//    case TenantAssignUserAccessId:
-//    case TenantRevokeUserAccessId:
-//    case TenantAssignAdmin:
-//    case TenantRevokeAdmin:
-//    case SetRangerServiceVersion:
-//    case CreateSnapshot:
-//    case DeleteSnapshot:
-////    case RenameSnapshot:
-//    case SnapshotMoveDeletedKeys:
-////    case SnapshotMoveTableKeys:
-//    case SnapshotPurge:
-//    case SetSnapshotProperty:
-//    case DeleteOpenKeys:
-//    case EchoRPC:
-//    case AbortExpiredMultiPartUploads:
-////    case QuotaRepair:
-//      return null;
-//    case RecoverLease:
-//      return omRequest.getRecoverLeaseRequest().getBucketName();
-//    case CreateDirectory:
-//      keyArgs = omRequest.getCreateDirectoryRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case CreateFile:
-//      keyArgs = omRequest.getCreateFileRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case CreateKey:
-//      keyArgs = omRequest.getCreateKeyRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case AllocateBlock:
-//      keyArgs = omRequest.getAllocateBlockRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case CommitKey:
-//      keyArgs = omRequest.getCommitKeyRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case DeleteKey:
-//      keyArgs = omRequest.getDeleteKeyRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case DeleteKeys:
-//      OzoneManagerProtocolProtos.DeleteKeyArgs deleteKeyArgs =
-//          omRequest.getDeleteKeysRequest()
-//              .getDeleteKeys();
-//      return deleteKeyArgs.getBucketName();
-//    case RenameKey:
-//      keyArgs = omRequest.getRenameKeyRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case RenameKeys:
-//      OzoneManagerProtocolProtos.RenameKeysArgs renameKeysArgs =
-//          omRequest.getRenameKeysRequest().getRenameKeysArgs();
-//      return renameKeysArgs.getBucketName();
-//    case InitiateMultiPartUpload:
-//      keyArgs = omRequest.getInitiateMultiPartUploadRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case CommitMultiPartUpload:
-//      keyArgs = omRequest.getCommitMultiPartUploadRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case AbortMultiPartUpload:
-//      keyArgs = omRequest.getAbortMultiPartUploadRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case CompleteMultiPartUpload:
-//      keyArgs = omRequest.getCompleteMultiPartUploadRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case SetTimes:
-//      keyArgs = omRequest.getSetTimesRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case PutObjectTagging:
-//      keyArgs = omRequest.getPutObjectTaggingRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case DeleteObjectTagging:
-//      keyArgs = omRequest.getDeleteObjectTaggingRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    default:
-//      return null;
-//    }
-//  }
-
-//  @VisibleForTesting
-//  protected OmTransport createOmTransport(String omServiceId)
-//      throws IOException {
-//    return OmTransportFactory.create(conf, ugi, omServiceId);
-//  }
-
-//  public static RaftGroupId generateBucketGroupId(String raftGroupPlainStr) {
-//    UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(raftGroupPlainStr.getBytes(StandardCharsets.UTF_8));
-//    return RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
-//  }
-
-//  @SuppressWarnings("checkstyle:methodlength")
-//  public static String getBucketName(OMRequest omRequest) throws IOException {
-//
-//    // Handling of exception by createClientRequest(OMRequest, OzoneManger):
-//    // Either the code will take FSO or non FSO path, both classes has a
-//    // validateAndUpdateCache() function which also contains
-//    // validateBucketAndVolume() function which validates bucket and volume and
-//    // throws necessary exceptions if required. validateAndUpdateCache()
-//    // function has catch block which catches the exception if required and
-//    // handles it appropriately.
-//    Type cmdType = omRequest.getCmdType();
-//    OzoneManagerProtocolProtos.KeyArgs keyArgs;
-//    switch (cmdType) {
-//    case CreateVolume:
-//    case SetVolumeProperty:
-//    case DeleteVolume:
-//    case CreateBucket:
-//    case DeleteBucket:
-//    case SetBucketProperty:
-//    case AddAcl:
-//    case RemoveAcl:
-//    case SetAcl:
-//    case GetDelegationToken:
-//    case CancelDelegationToken:
-//    case RenewDelegationToken:
-//    case GetS3Secret:
-//    case FinalizeUpgrade:
-//    case Prepare:
-//    case CancelPrepare:
-//    case SetS3Secret:
-//    case RevokeS3Secret:
-//    case PurgeKeys:
-//    case PurgeDirectories:
-//    case CreateTenant:
-//    case DeleteTenant:
-//    case TenantAssignUserAccessId:
-//    case TenantRevokeUserAccessId:
-//    case TenantAssignAdmin:
-//    case TenantRevokeAdmin:
-//    case SetRangerServiceVersion:
-//    case CreateSnapshot:
-//    case DeleteSnapshot:
-////    case RenameSnapshot:
-//    case SnapshotMoveDeletedKeys:
-////    case SnapshotMoveTableKeys:
-//    case SnapshotPurge:
-//    case SetSnapshotProperty:
-//    case DeleteOpenKeys:
-//    case EchoRPC:
-//    case AbortExpiredMultiPartUploads:
-////    case QuotaRepair:
-//      return null;
-//    case RecoverLease:
-//      return omRequest.getRecoverLeaseRequest().getBucketName();
-//    case CreateDirectory:
-//      keyArgs = omRequest.getCreateDirectoryRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case CreateFile:
-//      keyArgs = omRequest.getCreateFileRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case CreateKey:
-//      keyArgs = omRequest.getCreateKeyRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case AllocateBlock:
-//      keyArgs = omRequest.getAllocateBlockRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case CommitKey:
-//      keyArgs = omRequest.getCommitKeyRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case DeleteKey:
-//      keyArgs = omRequest.getDeleteKeyRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case DeleteKeys:
-//      OzoneManagerProtocolProtos.DeleteKeyArgs deleteKeyArgs =
-//          omRequest.getDeleteKeysRequest()
-//              .getDeleteKeys();
-//      return deleteKeyArgs.getBucketName();
-//    case RenameKey:
-//      keyArgs = omRequest.getRenameKeyRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case RenameKeys:
-//      OzoneManagerProtocolProtos.RenameKeysArgs renameKeysArgs =
-//          omRequest.getRenameKeysRequest().getRenameKeysArgs();
-//      return renameKeysArgs.getBucketName();
-//    case InitiateMultiPartUpload:
-//      keyArgs = omRequest.getInitiateMultiPartUploadRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case CommitMultiPartUpload:
-//      keyArgs = omRequest.getCommitMultiPartUploadRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case AbortMultiPartUpload:
-//      keyArgs = omRequest.getAbortMultiPartUploadRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case CompleteMultiPartUpload:
-//      keyArgs = omRequest.getCompleteMultiPartUploadRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case SetTimes:
-//      keyArgs = omRequest.getSetTimesRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case PutObjectTagging:
-//      keyArgs = omRequest.getPutObjectTaggingRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    case DeleteObjectTagging:
-//      keyArgs = omRequest.getDeleteObjectTaggingRequest().getKeyArgs();
-//      return keyArgs.getBucketName();
-//    default:
-//      return null;
-//    }
-//  }
 
   @VisibleForTesting
   protected OmTransport createOmTransport(String omServiceId)

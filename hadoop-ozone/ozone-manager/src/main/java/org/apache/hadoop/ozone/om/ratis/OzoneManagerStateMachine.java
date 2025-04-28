@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
 
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.hdds.utils.TransactionInfo;
-import org.apache.hadoop.ozone.common.ha.ratis.RatisSnapshotInfo;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.OzoneManagerPrepareState;
@@ -81,6 +80,7 @@ import org.slf4j.LoggerFactory;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.INTERNAL_ERROR;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.METADATA_ERROR;
 import static org.apache.hadoop.ozone.OzoneConsts.TRANSACTION_INFO_KEY;
+import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.isMultiRaftEnabled;
 
 /**
  * The OM StateMachine is the state machine for OM Ratis server. It is
@@ -98,7 +98,6 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
   private RequestHandler handler;
   private RaftGroupId raftGroupId;
   private OzoneManagerDoubleBuffer ozoneManagerDoubleBuffer;
-//  private final RatisSnapshotInfo snapshotInfo;
   private final ExecutorService executorService;
   private final ExecutorService installSnapshotExecutor;
   private final boolean isTracingEnabled;
@@ -122,7 +121,6 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
     this.isTracingEnabled = isTracingEnabled;
     this.ozoneManager = omRatisServer.getOzoneManager();
 
-//    this.snapshotInfo = (RatisSnapshotInfo) ozoneManager.getTransactionInfo(raftGroupId).toSnapshotInfo();
     loadSnapshotInfoFromDB();
     this.threadPrefix = ozoneManager.getThreadNamePrefix();
 
@@ -160,27 +158,27 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
 
   @Override
   public synchronized void reinitialize() throws IOException {
-    LOG.info("Reinitialize");
+    LOG.trace("Reinitialize");
     loadSnapshotInfoFromDB();
     if (getLifeCycleState() == LifeCycle.State.PAUSED) {
-      long index = getLastAppliedTermIndex().getIndex();
-      unpause(index,
-          getLastAppliedTermIndex().getTerm());
-      LOG.info("{}: reinitialize {} with {}", getId(), getGroupId(), index);
+      TermIndex lastAppliedTermIndex = getLastAppliedTermIndex();
+      long index = lastAppliedTermIndex.getIndex();
+      long term = lastAppliedTermIndex.getTerm();
+      unpause(index, term);
     }
   }
 
   @Override
   public SnapshotInfo getLatestSnapshot() {
     final SnapshotInfo currentSnapshotInfo = ozoneManager.getTransactionInfo(raftGroupId).toSnapshotInfo();
-    LOG.debug("Latest Snapshot Info {}", currentSnapshotInfo);
+    LOG.trace("Latest Snapshot Info {}", currentSnapshotInfo);
     return currentSnapshotInfo;
   }
 
   @Override
   public void notifyLeaderChanged(RaftGroupMemberId groupMemberId,
                                   RaftPeerId newLeaderId) {
-    LOG.info("Change leader in group {}. New leader {}", groupMemberId, newLeaderId);
+    LOG.trace("Change leader in group {}. New leader {}", groupMemberId, newLeaderId);
     // Initialize OMHAMetrics
     ozoneManager.omHAMetricsInit(newLeaderId.toString());
   }
@@ -195,7 +193,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
    */
   @Override
   public void notifyTermIndexUpdated(long currentTerm, long index) {
-    LOG.info("Notify term index updated {} {} - {}", raftGroupId, index, currentTerm);
+    LOG.trace("Notify term index updated {} {} - {}", raftGroupId, index, currentTerm);
     // SnapshotInfo should be updated when the term changes.
     // The index here refers to the log entry index and the index in
     // SnapshotInfo represents the snapshotIndex i.e. the index of the last
@@ -261,7 +259,6 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
    * should be rejected.
    * @throws IOException thrown by the state machine while validating
    */
-  // No in bucket
   @Override
   public TransactionContext startTransaction(
       RaftClientRequest raftClientRequest) throws IOException {
@@ -334,7 +331,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
    */
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-    LOG.info("Apply transaction {} {}", raftGroupId, trx.getLogEntry().getIndex());
+    LOG.trace("Apply transaction {} {}", raftGroupId, trx.getLogEntry().getIndex());
     try {
       // For the Leader, the OMRequest is set in trx in startTransaction.
       // For Followers, the OMRequest hast to be converted from the log entry.
@@ -384,7 +381,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
       CompletableFuture<OMResponse> future = CompletableFuture.supplyAsync(
           () -> runCommand(request, trxLogIndex), executorService);
       future.thenApply(omResponse -> {
-        LOG.info("Response result: {}", omResponse.getSuccess());
+        LOG.trace("Response result: {}", omResponse.getSuccess());
         if (!omResponse.getSuccess()) {
           // When INTERNAL_ERROR or METADATA_ERROR it is considered as
           // critical error and terminate the OM. Considering INTERNAL_ERROR
@@ -424,7 +421,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
    */
   private void terminate(OMResponse omResponse,
       OMException.ResultCodes resultCode) {
-    LOG.info("Terminate {} - {}", omResponse.getCmdType(), resultCode);
+    LOG.trace("Terminate {} - {}", omResponse.getCmdType(), resultCode);
     OMException exception = new OMException(omResponse.getMessage(),
         resultCode);
     String errorMessage = "OM Ratis Server has received unrecoverable " +
@@ -509,8 +506,6 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
     LOG.info("Current Snapshot Index {}", getLastAppliedTermIndex());
     TermIndex lastTermIndex = getLastAppliedTermIndex();
     long lastAppliedIndex = lastTermIndex.getIndex();
-//    snapshotInfo.updateTermIndex(lastTermIndex.getTerm(),
-//        lastAppliedIndex);
     TransactionInfo transactionInfo = new TransactionInfo.Builder()
         .setTransactionIndex(lastAppliedIndex)
         .setCurrentTerm(lastTermIndex.getTerm()).build();
@@ -601,9 +596,9 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
           handler.handleWriteRequest(request, trxLogIndex);
       OMLockDetails omLockDetails = omClientResponse.getOmLockDetails();
       OMResponse omResponse = omClientResponse.getOMResponse();
-      if (request.hasCreateBucketRequest()) {
+      if (request.hasCreateBucketRequest() && isMultiRaftEnabled()) {
         String bucketName = request.getCreateBucketRequest().getBucketInfo().getBucketName();
-        LOG.info("Creating raft group while runCommand {}", bucketName);
+        LOG.trace("Creating raft group while runCommand {}", bucketName);
         ozoneManager.createRaftGroupForBucket(bucketName);
       }
       if (omLockDetails != null) {
@@ -646,7 +641,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
    * @param flushedEpochs
    */
   public void updateLastAppliedIndex(List<Long> flushedEpochs) {
-    LOG.info("Updated last applied index {} {}", flushedEpochs, raftGroupId);
+    LOG.trace("Updated last applied index {} {}", flushedEpochs, raftGroupId);
     Preconditions.checkArgument(flushedEpochs.size() > 0);
     computeAndUpdateLastAppliedIndex(
         flushedEpochs.get(flushedEpochs.size() - 1), -1L, flushedEpochs, true);
@@ -726,7 +721,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
     // This is done, as we have a check in Ratis for not throwing
     // LeaderNotReadyException, it checks stateMachineIndex >= raftLog
     // nextIndex (placeHolderIndex).
-    LOG.info("Load snapshot from DB");
+    LOG.trace("Load snapshot from DB");
     TransactionInfo transactionInfo =
         TransactionInfo.readTransactionInfo(
             ozoneManager.getMetadataManager());
@@ -734,8 +729,6 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
       setLastAppliedTermIndex(TermIndex.valueOf(
           transactionInfo.getTerm(),
           transactionInfo.getTransactionIndex()));
-//      snapshotInfo.updateTermIndex(transactionInfo.getTerm(),
-//          transactionInfo.getTransactionIndex());
       ozoneManager.setTransactionInfo(raftGroupId, transactionInfo);
     }
     LOG.info("LastAppliedIndex is set from TransactionInfo from OM DB as {}",

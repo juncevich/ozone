@@ -30,8 +30,6 @@ import org.apache.hadoop.ozone.om.KeyManager;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
-import org.apache.hadoop.ozone.om.helpers.OMRatisHelper;
-import org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer;
 import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.CommitKeyRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.DeleteOpenKeysRequest;
@@ -41,8 +39,6 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OpenKey
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
 import org.apache.hadoop.util.Time;
 import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftClientRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -257,11 +253,16 @@ public class OpenKeyCleanupService extends BackgroundService {
 
     private OMResponse submitRequest(OMRequest omRequest) {
       try {
-        return OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, clientId, runCount.incrementAndGet(),
-                ozoneManager.getOMServiceId());
+        if (isRatisEnabled()) {
+          return OzoneManagerRatisUtils.submitRequest(
+              ozoneManager, omRequest, clientId, runCount.incrementAndGet(), ozoneManager.getOMServiceId()
+          );
+        } else {
+          return ozoneManager.getOmServerProtocol().submitRequest(null, omRequest);
+        }
       } catch (ServiceException e) {
         LOG.error("Open key " + omRequest.getCmdType()
-            + " request failed. Will retry at next run.", e);
+                  + " request failed. Will retry at next run.", e);
       }
       return null;
     }

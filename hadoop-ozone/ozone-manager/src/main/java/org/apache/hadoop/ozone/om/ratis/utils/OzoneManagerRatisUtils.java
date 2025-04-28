@@ -112,7 +112,7 @@ import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_RATIS_SNAPSHOT_DIR;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_RATIS_SNAPSHOT_DIR;
 import static org.apache.hadoop.ozone.om.OzoneManagerUtils.getBucketLayout;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateRaftGroupId;
+import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.generateRaftGroupId;
 
 /**
  * Utility class used by OzoneManager HA.
@@ -503,11 +503,11 @@ public final class OzoneManagerRatisUtils {
 
   public static void checkLeaderStatus(RaftGroupId raftGroupId, OzoneManager ozoneManager)
       throws ServiceException {
-    LOG.info("Check leader status for {}", raftGroupId);
+    LOG.trace("Check leader status for {}", raftGroupId);
     try {
       ozoneManager.checkLeaderStatus(raftGroupId);
     } catch (OMNotLeaderException | OMLeaderNotReadyException e) {
-      LOG.info(e.getMessage() + " For group " + raftGroupId);
+      LOG.trace("{} For group {}", e.getMessage(), raftGroupId);
       throw new ServiceException(e);
     }
   }
@@ -526,7 +526,7 @@ public final class OzoneManagerRatisUtils {
   public static OzoneManagerProtocolProtos.OMResponse submitRequest(
       OzoneManager om, OMRequest omRequest, ClientId clientId, long callId, String raftGroupToHandleRequest)
       throws ServiceException {
-    LOG.info("Submit request in Ratis Utils 2 {}", omRequest.getCmdType());
+    LOG.trace("Submit request in Ratis Utils 2 {}", omRequest.getCmdType());
     return om.getOmRatisServer().submitRequest(omRequest, clientId, callId, raftGroupToHandleRequest);
   }
 }

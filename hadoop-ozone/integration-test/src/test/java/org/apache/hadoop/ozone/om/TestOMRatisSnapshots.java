@@ -84,7 +84,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -1152,7 +1151,7 @@ public class TestOMRatisSnapshots {
     FileUtil.unTar(new File(snapshotDir, tarBall), tempDir.toFile());
   }
 
-  private static class DummyExitManager extends ExitManager {
+  private static final class DummyExitManager extends ExitManager {
     @Override
     public void exitSystem(int status, String message, Throwable throwable,
         Logger log) {

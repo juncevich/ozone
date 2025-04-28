@@ -382,7 +382,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     }
     assertNotNull(followerOM);
     UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(followerOM.getOMServiceId().getBytes(
-            StandardCharsets.UTF_8));;
+        StandardCharsets.UTF_8));
     RaftGroupId raftGroupId = RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
     Assertions.assertSame(followerOM.getOmRatisServer().checkLeaderStatus(raftGroupId),
         OzoneManagerRatisServer.RaftServerStatus.NOT_LEADER);

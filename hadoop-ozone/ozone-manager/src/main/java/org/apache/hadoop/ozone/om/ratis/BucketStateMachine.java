@@ -6,7 +6,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.hadoop.hdds.tracing.TracingUtil;
 import org.apache.hadoop.hdds.utils.TransactionInfo;
 import org.apache.hadoop.hdds.utils.db.Table;
-import org.apache.hadoop.ozone.common.ha.ratis.RatisSnapshotInfo;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
@@ -28,14 +27,12 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.util.ExitUtils;
-import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +41,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -75,10 +77,6 @@ public class BucketStateMachine extends BaseStateMachine {
 
   private final ExecutorService installSnapshotExecutor;
 
-  private volatile TermIndex lastNotifiedTermIndex = TermIndex.valueOf(0, RaftLog.INVALID_LOG_INDEX);
-
-  private volatile long lastSkippedIndex = RaftLog.INVALID_LOG_INDEX;
-
   private ConcurrentMap<Long, Long> applyTransactionMap =
       new ConcurrentSkipListMap<>();
 
@@ -90,15 +88,12 @@ public class BucketStateMachine extends BaseStateMachine {
   public static final Logger LOG =
           LoggerFactory.getLogger(BucketStateMachine.class);
 
-//  private final RatisSnapshotInfo snapshotInfo;
-
   public BucketStateMachine(RaftGroupId raftGroupId, OzoneManager om) throws IOException {
     this.ozoneManager = om;
     this.ozoneManagerDoubleBuffer =  buildDoubleBufferForRatis();
     this.threadNamePrefix = om.getThreadNamePrefix() + "-" + raftGroupId;
     this.currentRaftGroupId = raftGroupId;
 
-//    this.snapshotInfo = (RatisSnapshotInfo) ozoneManager.getTransactionInfo(raftGroupId).toSnapshotInfo();
     loadSnapshotInfoFromDB();
     ThreadFactory build = new ThreadFactoryBuilder().setDaemon(true)
         .setNameFormat(threadNamePrefix +
@@ -135,49 +130,12 @@ public class BucketStateMachine extends BaseStateMachine {
     });
   }
 
-//  @Override
-//  public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-//    try {
-////      LOG.info("Apply transaction in bucket state machine");
-//      // For the Leader, the OMRequest is set in trx in startTransaction.
-//      // For Followers, the OMRequest hast to be converted from the log entry.
-//      final Object context = trx.getStateMachineContext();
-//      final OzoneManagerProtocolProtos.OMRequest request = context != null ?
-//          (OzoneManagerProtocolProtos.OMRequest) context
-//          : OMRatisHelper.convertByteStringToOMRequest(
-//          trx.getStateMachineLogEntry().getLogData());
-//      final TermIndex termIndex = TermIndex.valueOf(trx.getLogEntry());
-////      LOG.debug("{}: applyTransaction {}", getId(), termIndex);
-//      // In the current approach we have one single global thread executor.
-//      // with single thread. Right now this is being done for correctness, as
-//      // applyTransaction will be run on multiple OM's we want to execute the
-//      // transactions in the same order on all OM's, otherwise there is a
-//      // chance that OM replica's can be out of sync.
-//      // TODO: In this way we are making all applyTransactions in
-//      // OM serial order. Revisit this in future to use multiple executors for
-//      // volume/bucket.
-//
-//      // Reason for not immediately implementing executor per volume is, if
-//      // one executor operations are slow, we cannot update the
-//      // lastAppliedIndex in OzoneManager StateMachine, even if other
-//      // executor has completed the transactions with id more.
-//
-//      //if there are too many pending requests, wait for doubleBuffer flushing
-//      ozoneManagerDoubleBuffer.acquireUnFlushedTransactions(1);
-//
-//      return CompletableFuture.supplyAsync(() -> runCommand(request, termIndex), executorService)
-//          .thenApply(this::processResponse);
-//    } catch (Exception e) {
-//      return completeExceptionally(e);
-//    }
-//  }
-
 /*
  * Apply a committed log entry to the state machine.
  */
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-    LOG.info("Apply transaction {} {}", currentRaftGroupId, trx.getLogEntry().getIndex());
+    LOG.trace("Apply transaction {} {}", currentRaftGroupId, trx.getLogEntry().getIndex());
     try {
       // For the Leader, the OMRequest is set in trx in startTransaction.
       // For Followers, the OMRequest hast to be converted from the log entry.
@@ -228,7 +186,6 @@ public class BucketStateMachine extends BaseStateMachine {
       CompletableFuture<OzoneManagerProtocolProtos.OMResponse> future = CompletableFuture.supplyAsync(
           () -> runCommand(request, trxLogIndex), executorService);
       future.thenApply(omResponse -> {
-        LOG.info("Response result: {}", omResponse.getSuccess());
         if (!omResponse.getSuccess()) {
           // When INTERNAL_ERROR or METADATA_ERROR it is considered as
           // critical error and terminate the OM. Considering INTERNAL_ERROR
@@ -270,11 +227,8 @@ public class BucketStateMachine extends BaseStateMachine {
       OzoneManagerProtocolProtos.OMRequest request,
       long trxLogIndex
   ) {
-    LOG.info("Run command {} - {}", request.getCmdType(), trxLogIndex);
+    LOG.trace("Run command {} - {}", request.getCmdType(), trxLogIndex);
     try {
-//      ExecutionContext context = ExecutionContext.of(termIndex.getIndex(), termIndex);
-//      LOG.error("Before handle write request in bucket: groupId {}, termIndex {}, cmdType {}", getGroupId(),
-//      termIndex, request.getCmdType());
       final OMClientResponse omClientResponse = handler.handleWriteRequest(
           request, trxLogIndex);
       OMLockDetails omLockDetails = omClientResponse.getOmLockDetails();
@@ -312,22 +266,6 @@ public class BucketStateMachine extends BaseStateMachine {
     return omResponse;
   }
 
-  private Message processResponse(OzoneManagerProtocolProtos.OMResponse omResponse) {
-    if (!omResponse.getSuccess()) {
-      // INTERNAL_ERROR or METADATA_ERROR are considered as critical errors.
-      // In such cases, OM must be terminated instead of completing the future exceptionally,
-      // Otherwise, OM may continue applying transactions which leads to an inconsistent state.
-      if (omResponse.getStatus() == INTERNAL_ERROR) {
-        terminate(omResponse, OMException.ResultCodes.INTERNAL_ERROR);
-      } else if (omResponse.getStatus() == METADATA_ERROR) {
-        terminate(omResponse, OMException.ResultCodes.METADATA_ERROR);
-      }
-    }
-
-    // For successful response and non-critical errors, convert the response.
-    return OMRatisHelper.convertResponseToMessage(omResponse);
-  }
-
   private static <T> CompletableFuture<T> completeExceptionally(Exception e) {
     final CompletableFuture<T> future = new CompletableFuture<>();
     future.completeExceptionally(e);
@@ -335,7 +273,6 @@ public class BucketStateMachine extends BaseStateMachine {
   }
 
   private static void terminate(OzoneManagerProtocolProtos.OMResponse omResponse, OMException.ResultCodes resultCode) {
-    LOG.info("Terminate {} - {}", omResponse.getCmdType(), resultCode);
     OMException exception = new OMException(omResponse.getMessage(),
         resultCode);
     String errorMessage = "OM Ratis Server has received unrecoverable " +
@@ -352,15 +289,12 @@ public class BucketStateMachine extends BaseStateMachine {
         .setOmMetadataManager(ozoneManager.getMetadataManager())
         .setOzoneManagerRatisSnapShot(this::updateLastAppliedIndex)
         .setmaxUnFlushedTransactionCount(maxUnFlushedTransactionCount)
-//        .setUpdateLastAppliedIndex(this::updateLastAppliedTermIndex)
         .setIndexToTerm(this::getTermForIndex).setThreadPrefix(threadNamePrefix)
         .setS3SecretManager(ozoneManager.getS3SecretManager())
         .setThreadPrefix(threadNamePrefix)
         .enableRatis(true)
         .enableTracing(TracingUtil.isTracingEnabled(ozoneManager.getConfiguration()))
         .build();
-//        .start()
-
   }
 
   /**
@@ -369,7 +303,6 @@ public class BucketStateMachine extends BaseStateMachine {
    * @param flushedEpochs
    */
   public void updateLastAppliedIndex(List<Long> flushedEpochs) {
-    LOG.info("Updated last applied index {} {}", flushedEpochs, currentRaftGroupId);
     Preconditions.checkArgument(flushedEpochs.size() > 0);
     computeAndUpdateLastAppliedIndex(
         flushedEpochs.get(flushedEpochs.size() - 1), -1L, flushedEpochs, true);
@@ -450,8 +383,6 @@ public class BucketStateMachine extends BaseStateMachine {
     LOG.info("Current Snapshot Index {}", getLastAppliedTermIndex());
     TermIndex lastTermIndex = getLastAppliedTermIndex();
     long lastAppliedIndex = lastTermIndex.getIndex();
-//    snapshotInfo.updateTermIndex(lastTermIndex.getTerm(),
-//            lastAppliedIndex);
     TransactionInfo transactionInfo = new TransactionInfo.Builder()
             .setTransactionIndex(lastAppliedIndex)
             .setCurrentTerm(lastTermIndex.getTerm()).build();
@@ -463,48 +394,12 @@ public class BucketStateMachine extends BaseStateMachine {
     return lastAppliedIndex;
   }
 
-//  @Override
-//  public long takeSnapshot() throws IOException {
-//    LOG.info("Current Snapshot Index {}", getLastAppliedTermIndex());
-//    // wait until applied == skipped
-//    while (getLastAppliedTermIndex().getIndex() < lastSkippedIndex) {
-//      if (ozoneManager.isStopped()) {
-//        throw new IOException("OzoneManager is already stopped: " + ozoneManager.getNodeDetails());
-//      }
-//      try {
-//        ozoneManagerDoubleBuffer.awaitFlush();
-//      } catch (InterruptedException e) {
-//        throw IOUtils.toInterruptedIOException("Interrupted ozoneManagerDoubleBuffer.awaitFlush", e);
-//      }
-//    }
-//
-//    return takeSnapshotImpl();
-//  }
-//
-//  private synchronized long takeSnapshotImpl() throws IOException {
-//    final TermIndex applied = getLastAppliedTermIndex();
-//    final TermIndex notified = getLastNotifiedTermIndex();
-//    final TermIndex snapshot = applied.compareTo(notified) > 0 ? applied : notified;
-//
-////    long startTime = Time.monotonicNow();
-//    final TransactionInfo transactionInfo = TransactionInfo.valueOf(snapshot);
-//    ozoneManager.setTransactionInfo(currentRaftGroupId, transactionInfo);
-//    ozoneManager.getMetadataManager().getTransactionInfoTable().put(TRANSACTION_INFO_KEY, transactionInfo);
-//    ozoneManager.getMetadataManager().getStore().flushDB();
-////    LOG.info("{}: taking snapshot. applied = {}, skipped = {}, " +
-////            "notified = {}, current snapshot index = {}, took {} ms",
-////        getId(), applied, lastSkippedIndex, notified, snapshot, Time.monotonicNow() - startTime);
-//    return snapshot.getIndex();
-//  }
-
   @Override
   public synchronized void reinitialize() throws IOException {
-    LOG.info("Reinitialize");
     loadSnapshotInfoFromDB();
     if (getLifeCycleState() == LifeCycle.State.PAUSED) {
       final TermIndex lastApplied = getLastAppliedTermIndex();
       unpause(lastApplied.getIndex(), lastApplied.getTerm());
-      LOG.info("{}: reinitialize {} with {}", getId(), getGroupId(), lastApplied);
     }
   }
 
@@ -534,28 +429,10 @@ public class BucketStateMachine extends BaseStateMachine {
   @Override
   public void notifyLeaderChanged(RaftGroupMemberId groupMemberId,
                                   RaftPeerId newLeaderId) {
-    LOG.info("Change leader in group {}. New leader {}", groupMemberId, newLeaderId);
+    LOG.trace("Change leader in group {}. New leader {}", groupMemberId, newLeaderId);
     // Initialize OMHAMetrics
     ozoneManager.omHAMetricsInit(newLeaderId.toString());
-//    LOG.info("{}: leader changed to {}", groupMemberId, newLeaderId);
   }
-
-//  /** Notified by Ratis for non-StateMachine term-index update. */
-//  @Override
-//  public synchronized void notifyTermIndexUpdated(long currentTerm, long newIndex) {
-//    // lastSkippedIndex is start of sequence (one less) of continuous notification from ratis
-//    // if there is any applyTransaction (double buffer index), then this gap is handled during double buffer
-//    // notification and lastSkippedIndex will be the start of last continuous sequence.
-//    final long oldIndex = lastNotifiedTermIndex.getIndex();
-//    if (newIndex - oldIndex > 1) {
-//      lastSkippedIndex = newIndex - 1;
-//    }
-//    final TermIndex newTermIndex = TermIndex.valueOf(currentTerm, newIndex);
-//    lastNotifiedTermIndex = assertUpdateIncreasingly("lastNotified", lastNotifiedTermIndex, newTermIndex);
-//    if (lastNotifiedTermIndex.getIndex() - getLastAppliedTermIndex().getIndex() == 1) {
-//      updateLastAppliedTermIndex(lastNotifiedTermIndex);
-//    }
-//  }
 
   /**
    * Called to notify state machine about indexes which are processed
@@ -567,7 +444,7 @@ public class BucketStateMachine extends BaseStateMachine {
    */
   @Override
   public void notifyTermIndexUpdated(long currentTerm, long index) {
-    LOG.info("Notify term index updated {} {} - {}", currentRaftGroupId, index, currentTerm);
+    LOG.trace("Notify term index updated {} {} - {}", currentRaftGroupId, index, currentTerm);
     // SnapshotInfo should be updated when the term changes.
     // The index here refers to the log entry index and the index in
     // SnapshotInfo represents the snapshotIndex i.e. the index of the last
@@ -581,24 +458,11 @@ public class BucketStateMachine extends BaseStateMachine {
     // updateLastApplied updates lastAppliedTermIndex.
     computeAndUpdateLastAppliedIndex(index, currentTerm, null, false);
   }
-//  @Override
-//  protected synchronized boolean updateLastAppliedTermIndex(TermIndex newTermIndex) {
-//    TermIndex lastApplied = getLastAppliedTermIndex();
-//    assertUpdateIncreasingly("lastApplied", lastApplied, newTermIndex);
-//    // if newTermIndex getting updated is within sequence of notifiedTermIndex (i.e. from lastSkippedIndex and
-//    // notifiedTermIndex), then can update directly to lastNotifiedTermIndex as it ensure previous double buffer's
-//    // Index is notified or getting notified matching lastSkippedIndex
-//    if (newTermIndex.getIndex() < getLastNotifiedTermIndex().getIndex()
-//        && newTermIndex.getIndex() >= lastSkippedIndex) {
-//      newTermIndex = getLastNotifiedTermIndex();
-//    }
-//    return super.updateLastAppliedTermIndex(newTermIndex);
-//  }
 
   @Override
   public void notifySnapshotInstalled(RaftProtos.InstallSnapshotResult result,
                                       long snapshotIndex, RaftPeer peer) {
-    LOG.info("Receive notifySnapshotInstalled event {} for the peer: {}" +
+    LOG.trace("Receive notifySnapshotInstalled event {} for the peer: {}" +
         " snapshotIndex: {}.", result, peer.getId(), snapshotIndex);
     switch (result) {
     case SUCCESS:
@@ -613,10 +477,6 @@ public class BucketStateMachine extends BaseStateMachine {
     }
   }
 
-  public TermIndex getLastNotifiedTermIndex() {
-    return lastNotifiedTermIndex;
-  }
-
   /** Assert if the given {@link TermIndex} is updated increasingly. */
   private TermIndex assertUpdateIncreasingly(String name, TermIndex oldTermIndex, TermIndex newTermIndex) {
     Preconditions.checkArgument(newTermIndex.compareTo(oldTermIndex) >= 0,
@@ -628,24 +488,18 @@ public class BucketStateMachine extends BaseStateMachine {
     // This is done, as we have a check in Ratis for not throwing
     // LeaderNotReadyException, it checks stateMachineIndex >= raftLog
     // nextIndex (placeHolderIndex).
-    LOG.info("Load snapshot info from db");
-    TransactionInfo transactionInfo =
-//        ozoneManager.getTransactionInfo(currentRaftGroupId);
-        TransactionInfo.readTransactionInfo(
-            ozoneManager.getMetadataManager(), currentRaftGroupId.toString());
-    LOG.info("Found transaction info {} for group {}", transactionInfo, currentRaftGroupId);
+    LOG.trace("Load snapshot info from db");
+    TransactionInfo transactionInfo = TransactionInfo.readTransactionInfo(
+            ozoneManager.getMetadataManager(), currentRaftGroupId.toString()
+    );
+    LOG.trace("Found transaction info {} for group {}", transactionInfo, currentRaftGroupId);
     if (transactionInfo != null) {
-      final TermIndex ti =  transactionInfo.getTermIndex();
+      final TermIndex ti = transactionInfo.getTermIndex();
       setLastAppliedTermIndex(ti);
-//      snapshotInfo.updateTermIndex(transactionInfo.getTerm(),
-//              transactionInfo.getTransactionIndex());
       ozoneManager.setTransactionInfo(currentRaftGroupId, transactionInfo);
     }
-    LOG.info("LastAppliedIndex is set from TransactionInfo from OM DB as {}",
+    LOG.trace("LastAppliedIndex is set from TransactionInfo from OM DB as {}",
             getLastAppliedTermIndex());
-//    else {
-//      LOG.info("TransactionInfo not found in OM DB.");
-//    }
   }
 
   public synchronized void unpause(long newLastAppliedSnaphsotIndex,
@@ -662,11 +516,6 @@ public class BucketStateMachine extends BaseStateMachine {
             getId(), newLastAppliedSnaphsotIndex, newLastAppliedSnapShotTermIndex);
       });
     }
-  }
-
-  @VisibleForTesting
-  void addApplyTransactionTermIndex(long term, long index) {
-    applyTransactionMap.put(index, term);
   }
 
   public long getTermForIndex(long transactionIndex) {

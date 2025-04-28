@@ -63,6 +63,7 @@ import static org.apache.hadoop.ozone.OzoneConsts.OZONE_O3TRASH_URI_SCHEME;
 import static org.apache.hadoop.ozone.OzoneConsts.OZONE_URI_DELIMITER;
 import static org.apache.hadoop.ozone.om.helpers.OzoneFSUtils.addTrailingSlashIfNeeded;
 import static org.apache.hadoop.ozone.om.helpers.OzoneFSUtils.pathToKey;
+import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.isMultiRaftEnabled;
 
 /**
  * FileSystem to be used by the Trash Emptier.
@@ -116,18 +117,20 @@ public class TrashOzoneFileSystem extends FileSystem {
   private void submitRequest(OzoneManagerProtocolProtos.OMRequest omRequest)
       throws Exception {
     ozoneManager.getMetrics().incNumTrashWriteRequests();
-//    if (ozoneManager.isRatisEnabled()) {
+    if (ozoneManager.isRatisEnabled()) {
       OMClientRequest omClientRequest =
           OzoneManagerRatisUtils.createClientRequest(omRequest, ozoneManager);
-    omRequest = omClientRequest.preExecute(ozoneManager);
+      omRequest = omClientRequest.preExecute(ozoneManager);
 
-    OMKeyRequest omKeyRequest = (OMKeyRequest) omClientRequest;
-    OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, CLIENT_ID, runCount.getAndIncrement(),
-            omKeyRequest.getWriteReqBucketName() != null ? omKeyRequest.getWriteReqBucketName() : ozoneManager.getOMServiceId());
-//    } else {
-//      ozoneManager.getOmServerProtocol().
-//          submitRequest(NULL_RPC_CONTROLLER, omRequest);
-//    }
+      OMKeyRequest omKeyRequest = (OMKeyRequest) omClientRequest;
+      String bucketName = (omKeyRequest.getWriteReqBucketName() != null && isMultiRaftEnabled()) ?
+          omKeyRequest.getWriteReqBucketName() : ozoneManager.getOMServiceId();
+      OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, CLIENT_ID, runCount.getAndIncrement(),
+          bucketName);
+    } else {
+      ozoneManager.getOmServerProtocol().
+          submitRequest(NULL_RPC_CONTROLLER, omRequest);
+    }
   }
 
   @Override

@@ -53,7 +53,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.TOKEN_EXPIRED;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMTokenProto.Type.S3AUTHINFO;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateRaftGroupId;
+import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.generateRaftGroupId;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

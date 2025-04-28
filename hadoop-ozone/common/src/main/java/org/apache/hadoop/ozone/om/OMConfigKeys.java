@@ -605,4 +605,12 @@ public final class OMConfigKeys {
   public static final String OZONE_OM_MAX_BUCKET =
       "ozone.om.max.buckets";
   public static final int OZONE_OM_MAX_BUCKET_DEFAULT = 100000;
+
+  public static final String OZONE_OM_BUCKET_RAFT_GROUPS =
+          "ozone.om.bucket.raft.groups";
+  public static final int OZONE_OM_BUCKET_RAFT_GROUPS_DEFAULT = 4;
+
+  public static final String OZONE_OM_MULTI_RAFT_ENABLED =
+          "ozone.om.multi.raft.enabled";
+  public static final boolean OZONE_OM_MULTI_RAFT_ENABLED_DEFAULT = false;
 }

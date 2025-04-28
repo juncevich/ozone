@@ -126,7 +126,7 @@ public class SnapshotDeletingService extends AbstractKeyDeletingService {
         OZONE_SNAPSHOT_KEY_DELETING_LIMIT_PER_TASK_DEFAULT);
   }
 
-  private class SnapshotDeletingTask implements BackgroundTask {
+  private final class SnapshotDeletingTask implements BackgroundTask {
 
     @SuppressWarnings("checkstyle:MethodLength")
     @Override
@@ -560,11 +560,15 @@ public class SnapshotDeletingService extends AbstractKeyDeletingService {
 
     public void submitRequest(OMRequest omRequest) {
       try {
-        OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, clientId, getRunCount().get(),
-                ozoneManager.getOMServiceId());
+        if (isRatisEnabled()) {
+          OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, clientId, getRunCount().get(),
+              ozoneManager.getOMServiceId());
+        } else {
+          ozoneManager.getOmServerProtocol().submitRequest(null, omRequest);
+        }
       } catch (ServiceException e) {
         LOG.error("Snapshot Deleting request failed. " +
-            "Will retry at next run.", e);
+                  "Will retry at next run.", e);
       }
     }
   }

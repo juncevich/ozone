@@ -31,8 +31,8 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMReque
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateLimitedRaftGroupId;
-import org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew;
+import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.generateLimitedRaftGroupId;
+import org.apache.hadoop.ozone.util.OzoneMultiRaftUtils;
 import org.apache.ratis.protocol.RaftGroupId;
 
 import org.apache.ratis.server.RaftServer;
@@ -46,7 +46,8 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import static org.apache.hadoop.ozone.util.OzoneManagerRatisUtilsNew.generateRaftGroupId;
+import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.generateRaftGroupId;
+import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.isMultiRaftEnabled;
 
 /**
  * OM Request used to flush all transactions to disk, take a DB snapshot, and
@@ -99,23 +100,19 @@ public class OMPrepareRequest extends OMClientRequest {
       // This guarantees the log index of this request will be the same as
       // the snapshot index in the prepared state.
       OzoneManagerDoubleBuffer doubleBuffer;
-//      OzoneManagerDoubleBuffer doubleBuffer =
-//              ozoneManager.getOmRatisServer().getOmStateMachine().getOzoneManagerDoubleBuffer();
-//      doubleBuffer.add(response, transactionLogIndex);
 
       OzoneManagerRatisServer omRatisServer = ozoneManager.getOmRatisServer();
-      String bucketName = OzoneManagerRatisUtilsNew.getBucketName(omRequest);
-      RaftGroupId raftGroupId = null;
-      if (bucketName != null) {
-        raftGroupId = generateLimitedRaftGroupId(bucketName);
-        doubleBuffer = ozoneManager.getOmRatisServer().getBucketStateMachine(raftGroupId).getOzoneManagerDoubleBuffer();
-      } else {
+      String bucketName = OzoneMultiRaftUtils.getBucketName(omRequest);
+      RaftGroupId raftGroupId;
+      if (bucketName == null || !isMultiRaftEnabled()) {
         raftGroupId = generateRaftGroupId(ozoneManager.getOMServiceId());
         doubleBuffer = ozoneManager.getOmRatisServer().getOmStateMachine().getOzoneManagerDoubleBuffer();
+      } else {
+        raftGroupId = generateLimitedRaftGroupId(bucketName);
+        doubleBuffer = ozoneManager.getOmRatisServer().getBucketStateMachine(raftGroupId).getOzoneManagerDoubleBuffer();
       }
       doubleBuffer.add(response, transactionLogIndex);
       final RaftServer.Division division = omRatisServer.getServerDivision(raftGroupId);
-      // TODO iterate over all of the state machines (ozoneManager.getStateMachines())
 
       // Wait for outstanding double buffer entries to flush to disk,
       // so they will not be purged from the log before being persisted to
