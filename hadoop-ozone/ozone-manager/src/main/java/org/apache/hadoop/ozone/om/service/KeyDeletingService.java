@@ -488,8 +488,7 @@ public class KeyDeletingService extends AbstractKeyDeletingService {
     public void submitRequest(OMRequest omRequest, ClientId clientId) {
       try {
         if (isRatisEnabled()) {
-          OzoneManagerRatisUtils.submitRequest(getOzoneManager(), omRequest, clientId, getRunCount().get(),
-              getOzoneManager().getOMServiceId());
+          OzoneManagerRatisUtils.submitRequest(getOzoneManager(), omRequest, clientId, getRunCount().get());
         } else {
           getOzoneManager().getOmServerProtocol().submitRequest(null, omRequest);
         }

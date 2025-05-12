@@ -46,14 +46,9 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import static org.assertj.core.api.Assertions.anyOf;
-import java.util.UUID;
-import java.nio.charset.StandardCharsets;
-import static org.assertj.core.api.Assertions.anyOf;
 
 import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
@@ -61,13 +56,11 @@ import javax.management.ObjectName;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 
 import static java.util.UUID.randomUUID;
 import static org.apache.hadoop.ozone.OzoneAcl.AclScope.ACCESS;
@@ -83,7 +76,6 @@ import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRI
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -381,10 +373,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
       }
     }
     assertNotNull(followerOM);
-    UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(followerOM.getOMServiceId().getBytes(
-        StandardCharsets.UTF_8));
-    RaftGroupId raftGroupId = RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
-    Assertions.assertSame(followerOM.getOmRatisServer().checkLeaderStatus(raftGroupId),
+    Assertions.assertSame(followerOM.getOmRatisServer().checkOmLeaderStatus(),
         OzoneManagerRatisServer.RaftServerStatus.NOT_LEADER);
 
     OzoneManagerProtocolProtos.OMRequest writeRequest =

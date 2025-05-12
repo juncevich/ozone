@@ -95,24 +95,21 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.protocol.ClientId;
-import org.rocksdb.RocksDBException;
 import org.apache.ratis.protocol.RaftGroupId;
-
-import java.io.IOException;
-import java.nio.file.Path;
-
+import org.rocksdb.RocksDBException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_RATIS_SNAPSHOT_DIR;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_RATIS_SNAPSHOT_DIR;
 import static org.apache.hadoop.ozone.om.OzoneManagerUtils.getBucketLayout;
-import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.generateRaftGroupId;
 
 /**
  * Utility class used by OzoneManager HA.
@@ -493,8 +490,7 @@ public final class OzoneManagerRatisUtils {
       throws ServiceException {
     LOG.info("Check leader status for OM");
     try {
-      RaftGroupId raftGroupId = generateRaftGroupId(ozoneManager.getOMServiceId());
-      ozoneManager.checkLeaderStatus(raftGroupId);
+      ozoneManager.checkOmLeaderStatus();
     } catch (OMNotLeaderException | OMLeaderNotReadyException e) {
       LOG.debug(e.getMessage());
       throw new ServiceException(e);
@@ -528,5 +524,19 @@ public final class OzoneManagerRatisUtils {
       throws ServiceException {
     LOG.trace("Submit request in Ratis Utils 2 {}", omRequest.getCmdType());
     return om.getOmRatisServer().submitRequest(omRequest, clientId, callId, raftGroupToHandleRequest);
+  }
+
+  public static OzoneManagerProtocolProtos.OMResponse submitWriteRequest(
+      OzoneManager om, OMRequest omRequest, ClientId clientId, long callId, String bucketName)
+      throws ServiceException {
+    LOG.trace("Submit write request {}", omRequest.getCmdType());
+    return om.getOmRatisServer().submitWriteRequest(omRequest, clientId, callId, bucketName);
+  }
+
+  public static OzoneManagerProtocolProtos.OMResponse submitRequest(
+          OzoneManager om, OMRequest omRequest, ClientId clientId, long callId)
+          throws ServiceException {
+    LOG.trace("Submit request {}", omRequest.getCmdType());
+    return om.getOmRatisServer().submitRequest(omRequest, clientId, callId);
   }
 }

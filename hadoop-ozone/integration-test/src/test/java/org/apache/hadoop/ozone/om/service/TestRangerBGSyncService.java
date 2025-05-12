@@ -57,7 +57,6 @@ import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
-import static org.mockito.ArgumentMatchers.anyString;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -88,7 +87,6 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.framework;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.mockito.ArgumentMatchers.anyString;
 
 /**
  * Tests Ozone Manager Multi-Tenancy feature Background Sync with Apache Ranger.
@@ -236,7 +234,7 @@ public class TestRangerBGSyncService {
         ozoneManager.getMetadataManager().getMetaTable().put(
             OzoneConsts.RANGER_OZONE_SERVICE_VERSION_KEY, String.valueOf(v));
         return null;
-      }).when(omRatisServer).submitRequest(Mockito.any(), anyString());
+      }).when(omRatisServer).submitRequest(Mockito.any());
     } catch (ServiceException e) {
       throw new RuntimeException(e);
     }

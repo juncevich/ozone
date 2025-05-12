@@ -434,11 +434,10 @@ public class SnapshotDirectoryCleaningService
   public void submitRequest(OMRequest omRequest, ClientId clientId) {
     try {
       if (isRatisEnabled()) {
-        OzoneManagerRatisUtils.submitRequest(getOzoneManager(), omRequest, clientId, getRunCount().get(),
-            getOzoneManager().getOMServiceId());
+        OzoneManagerRatisUtils.submitRequest(getOzoneManager(), omRequest, clientId, getRunCount().get());
       } else {
         getOzoneManager().getOmServerProtocol()
-            .submitRequest(null, omRequest);
+                .submitRequest(null, omRequest);
       }
     } catch (ServiceException e) {
       LOG.error("Snapshot deep cleaning request failed. " +

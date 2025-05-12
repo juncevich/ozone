@@ -23,7 +23,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ServiceException;
-import org.apache.commons.lang3.tuple.Triple;
 import org.apache.hadoop.hdds.HddsUtils;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.RatisConfUtils;
@@ -46,7 +45,6 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status;
-import org.apache.hadoop.ozone.util.OzoneMultiRaftUtils;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
@@ -101,7 +99,8 @@ import static org.apache.hadoop.ipc.RpcConstants.DUMMY_CLIENT_ID;
 import static org.apache.hadoop.ipc.RpcConstants.INVALID_CALL_ID;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_HA_PREFIX;
 import static org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils.createServerTlsConfig;
-import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.generateRaftGroupId;
+import static org.apache.hadoop.ozone.util.OzoneRaftGroupIdGenerator.generateLimitedRaftGroupId;
+import static org.apache.hadoop.ozone.util.OzoneRaftGroupIdGenerator.generateRaftGroupId;
 import static org.apache.hadoop.util.MetricUtil.captureLatencyNs;
 
 /**
@@ -203,7 +202,7 @@ public final class OzoneManagerRatisServer {
     };
   }
 
-  public void addBucketGroup(RaftGroup bucketRaftGroup) throws IOException {
+  public void addBucketRaftGroup(RaftGroup bucketRaftGroup) throws IOException {
     GroupManagementRequest request = GroupManagementRequest.newAdd(clientId, server.getId(), nextCallId(),
         bucketRaftGroup);
     RaftClientReply reply;
@@ -300,21 +299,20 @@ public final class OzoneManagerRatisServer {
    * @return OMResponse - response returned to the client.
    * @throws ServiceException
    */
-  public OMResponse submitRequest(OMRequest omRequest, String raftGroupName) throws ServiceException {
-    RaftGroupId raftGroupId = generateRaftGroupId(raftGroupName);
+  public OMResponse submitRequest(OMRequest omRequest) throws ServiceException {
     return commonSubmitRequest(
             omRequest,
-            raftGroupId
+            getCurrentRaftGroupId()
     );
   }
 
   public OMResponse submitBucketWriteRequest(
-          OMRequest omRequest, String raftGroupName
+      OMRequest omRequest, String raftGroupName
   ) throws ServiceException {
-    RaftGroupId raftGroupId = OzoneMultiRaftUtils.generateLimitedRaftGroupId(raftGroupName);
+    RaftGroupId raftGroupId = generateLimitedRaftGroupId(raftGroupName);
     return commonSubmitRequest(
-            omRequest,
-            raftGroupId
+        omRequest,
+        raftGroupId
     );
   }
 
@@ -345,6 +343,50 @@ public final class OzoneManagerRatisServer {
     }
   }
 
+  /**
+   * API used internally from OzoneManager Server when requests need to be submitted.
+   * @param omRequest Ozone Manager request
+   * @param cliId client id
+   * @param callId call id
+   * @return OMResponse
+   * @throws ServiceException thrown when problems with leader or processing Raft reply
+   */
+  public OMResponse submitWriteRequest(
+          OMRequest omRequest, ClientId cliId, long callId, String bucketName
+  ) throws ServiceException {
+    LOG.trace("Submit write request in Ratis Server {} - {} - {} - {}",
+            omRequest.getCmdType(), cliId, callId, bucketName
+    );
+    RaftGroupId raftGroupId = generateLimitedRaftGroupId(bucketName);
+    return submitRequest(omRequest, cliId, callId, raftGroupId);
+  }
+
+  public OMResponse submitRequest(
+          OMRequest omRequest, ClientId cliId, long callId
+  ) throws ServiceException {
+    return submitRequest(omRequest, cliId, callId, getCurrentRaftGroupId());
+  }
+
+  public OMResponse submitRequest(
+          OMRequest omRequest, ClientId cliId, long callId, RaftGroupId raftGroupId
+  ) throws ServiceException {
+    LOG.trace("Submit request {} - {} - {} - {}",
+            omRequest.getCmdType(), cliId, callId, raftGroupId
+    );
+    RaftClientRequest raftClientRequest = RaftClientRequest.newBuilder()
+            .setClientId(cliId)
+            .setServerId(getRaftPeerId())
+            .setGroupId(raftGroupId)
+            .setCallId(callId)
+            .setMessage(Message.valueOf(
+                    OMRatisHelper.convertRequestToByteString(omRequest)))
+            .setType(RaftClientRequest.writeRequestType())
+            .build();
+    RaftClientReply raftClientReply =
+            submitRequestToRatis(raftClientRequest);
+    return createOmResponse(omRequest, raftClientReply);
+  }
+
   private OMResponse createOmResponse(OMRequest omRequest,
       RaftClientReply raftClientReply) throws ServiceException {
     return captureLatencyNs(
@@ -370,10 +412,10 @@ public final class OzoneManagerRatisServer {
   /**
    * API used internally from OzoneManager Server when requests needs to be
    * submitted to ratis, where the crafted RaftClientRequest is passed along.
-   * @param omRequest
-   * @param raftClientRequest
+   * @param omRequest Ozone Manager request
+   * @param raftClientRequest Raft client request
    * @return OMResponse
-   * @throws ServiceException
+   * @throws ServiceException thrown when problems with leader or processing Raft reply
    */
   public OMResponse submitRequest(OMRequest omRequest,
       RaftClientRequest raftClientRequest) throws ServiceException {
@@ -570,10 +612,10 @@ public final class OzoneManagerRatisServer {
 
   /**
    * Process the raftClientReply and return OMResponse.
-   * @param omRequest
-   * @param reply
+   * @param omRequest Ozone Manager request
+   * @param reply Raft client reply
    * @return OMResponse - response which is returned to client.
-   * @throws ServiceException
+   * @throws ServiceException thrown when problems with leader or processing Raft reply
    */
   private OMResponse createOmResponseImpl(OMRequest omRequest,
       RaftClientReply reply) throws ServiceException {
@@ -902,6 +944,9 @@ public final class OzoneManagerRatisServer {
     LEADER_AND_READY;
   }
 
+  public RaftServerStatus checkOmLeaderStatus() {
+    return checkLeaderStatus(getCurrentRaftGroupId());
+  }
   /**
    * Check Leader status and return the state of the RaftServer.
    *

@@ -254,9 +254,7 @@ public class OpenKeyCleanupService extends BackgroundService {
     private OMResponse submitRequest(OMRequest omRequest) {
       try {
         if (isRatisEnabled()) {
-          return OzoneManagerRatisUtils.submitRequest(
-              ozoneManager, omRequest, clientId, runCount.incrementAndGet(), ozoneManager.getOMServiceId()
-          );
+          return OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, clientId, runCount.incrementAndGet());
         } else {
           return ozoneManager.getOmServerProtocol().submitRequest(null, omRequest);
         }

@@ -561,8 +561,7 @@ public class SnapshotDeletingService extends AbstractKeyDeletingService {
     public void submitRequest(OMRequest omRequest) {
       try {
         if (isRatisEnabled()) {
-          OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, clientId, getRunCount().get(),
-              ozoneManager.getOMServiceId());
+          OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, clientId, getRunCount().get());
         } else {
           ozoneManager.getOmServerProtocol().submitRequest(null, omRequest);
         }

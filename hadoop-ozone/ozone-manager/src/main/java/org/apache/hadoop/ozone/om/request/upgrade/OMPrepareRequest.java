@@ -31,7 +31,6 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMReque
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
-import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.generateLimitedRaftGroupId;
 import org.apache.hadoop.ozone.util.OzoneMultiRaftUtils;
 import org.apache.ratis.protocol.RaftGroupId;
 
@@ -46,8 +45,9 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.generateRaftGroupId;
 import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.isMultiRaftEnabled;
+import static org.apache.hadoop.ozone.util.OzoneRaftGroupIdGenerator.generateLimitedRaftGroupId;
+import static org.apache.hadoop.ozone.util.OzoneRaftGroupIdGenerator.generateRaftGroupId;
 
 /**
  * OM Request used to flush all transactions to disk, take a DB snapshot, and
@@ -104,12 +104,12 @@ public class OMPrepareRequest extends OMClientRequest {
       OzoneManagerRatisServer omRatisServer = ozoneManager.getOmRatisServer();
       String bucketName = OzoneMultiRaftUtils.getBucketName(omRequest);
       RaftGroupId raftGroupId;
-      if (bucketName == null || !isMultiRaftEnabled()) {
-        raftGroupId = generateRaftGroupId(ozoneManager.getOMServiceId());
-        doubleBuffer = ozoneManager.getOmRatisServer().getOmStateMachine().getOzoneManagerDoubleBuffer();
-      } else {
+      if (bucketName != null && isMultiRaftEnabled()) {
         raftGroupId = generateLimitedRaftGroupId(bucketName);
         doubleBuffer = ozoneManager.getOmRatisServer().getBucketStateMachine(raftGroupId).getOzoneManagerDoubleBuffer();
+      } else {
+        raftGroupId = generateRaftGroupId(ozoneManager.getOMServiceId());
+        doubleBuffer = ozoneManager.getOmRatisServer().getOmStateMachine().getOzoneManagerDoubleBuffer();
       }
       doubleBuffer.add(response, transactionLogIndex);
       final RaftServer.Division division = omRatisServer.getServerDivision(raftGroupId);

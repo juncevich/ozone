@@ -16,24 +16,10 @@
  */
 package org.apache.hadoop.ozone.protocolPB;
 
-import static org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer.RaftServerStatus.LEADER_AND_READY;
-import static org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer.RaftServerStatus.NOT_LEADER;
-import static org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils.createClientRequest;
-import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.PrepareStatus;
-import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.generateRaftGroupId;
-import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.isMultiRaftEnabled;
-import static org.apache.hadoop.util.MetricUtil.captureLatencyNs;
-import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.generateLimitedRaftGroupId;
-import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.getBucketName;
-
-import org.apache.ratis.protocol.RaftGroupId;
-
-import java.io.IOException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-
 import com.google.common.annotations.VisibleForTesting;
+import com.google.protobuf.ProtocolMessageEnum;
+import com.google.protobuf.RpcController;
+import com.google.protobuf.ServiceException;
 import org.apache.hadoop.hdds.server.OzoneProtocolMessageDispatcher;
 import org.apache.hadoop.hdds.tracing.TracingUtil;
 import org.apache.hadoop.hdds.utils.ProtocolMessageMetrics;
@@ -57,16 +43,27 @@ import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
-
-import com.google.protobuf.ProtocolMessageEnum;
-import com.google.protobuf.RpcController;
-import com.google.protobuf.ServiceException;
 import org.apache.hadoop.ozone.security.S3SecurityUtil;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.ExitUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer.RaftServerStatus.LEADER_AND_READY;
+import static org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer.RaftServerStatus.NOT_LEADER;
+import static org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils.createClientRequest;
+import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.PrepareStatus;
+import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.isMultiRaftEnabled;
+import static org.apache.hadoop.ozone.util.OzoneRaftGroupIdGenerator.generateLimitedRaftGroupId;
+import static org.apache.hadoop.ozone.util.OzoneRaftGroupIdGenerator.generateRaftGroupId;
+import static org.apache.hadoop.util.MetricUtil.captureLatencyNs;
 
 /**
  * This class is the server-side translator that forwards requests received on
@@ -228,10 +225,10 @@ public class OzoneManagerProtocolServerSideTranslatorPB implements
         RaftGroupId raftGroupId;
         String bucketName = omClientRequest.getWriteReqBucketName();
         LOG.trace("Continue internal processing request {}, bucket {}", request.getCmdType(), bucketName);
-        if (bucketName == null || !isMultiRaftEnabled()) {
-          raftGroupId = generateRaftGroupId(ozoneManager.getOMServiceId());
-        } else {
+        if (bucketName != null && isMultiRaftEnabled()) {
           raftGroupId = generateLimitedRaftGroupId(bucketName);
+        } else {
+          raftGroupId = generateRaftGroupId(ozoneManager.getOMServiceId());
         }
         // To validate credentials we have already verified leader status.
         // This will skip of checking leader status again if request has S3Auth.
@@ -253,13 +250,13 @@ public class OzoneManagerProtocolServerSideTranslatorPB implements
       }
 
       final OMResponse response;
-      if (omClientRequest.getWriteReqBucketName() == null || !isMultiRaftEnabled()) {
-        response = omRatisServer.submitRequest(requestToSubmit, ozoneManager.getOMServiceId());
-      } else {
+      if (omClientRequest.getWriteReqBucketName() != null && isMultiRaftEnabled()) {
         response = omRatisServer.submitBucketWriteRequest(
-                requestToSubmit,
-                omClientRequest.getWriteReqBucketName()
+            requestToSubmit,
+            omClientRequest.getWriteReqBucketName()
         );
+      } else {
+        response = omRatisServer.submitRequest(requestToSubmit);
       }
 
       if (!response.getSuccess()) {
@@ -284,19 +281,11 @@ public class OzoneManagerProtocolServerSideTranslatorPB implements
 
   private OMResponse submitReadRequestToOM(OMRequest request)
       throws ServiceException {
-    String bucketName = getBucketName(request);
-    RaftGroupId raftGroupId;
-    if (bucketName == null) {
-      raftGroupId = omRatisServer.getCurrentRaftGroupId();
-    } else {
-      raftGroupId = generateLimitedRaftGroupId(bucketName);
-    }
-    RaftServerStatus raftServerStatus = omRatisServer.checkLeaderStatus(raftGroupId);
-    if (raftServerStatus == LEADER_AND_READY ||
-        request.getCmdType().equals(PrepareStatus)) {
+    RaftServerStatus raftServerStatus = omRatisServer.checkOmLeaderStatus();
+    if (raftServerStatus == LEADER_AND_READY || request.getCmdType().equals(PrepareStatus)) {
       return handler.handleReadRequest(request);
     } else {
-      throw createLeaderErrorException(raftGroupId, raftServerStatus);
+      throw createLeaderErrorException(omRatisServer.getCurrentRaftGroupId(), raftServerStatus);
     }
   }
 

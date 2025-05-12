@@ -17,41 +17,6 @@
 
 package org.apache.hadoop.ozone.om;
 
-import java.util.concurrent.atomic.AtomicReference;
-import javax.management.ObjectName;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.UncheckedIOException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.security.PrivilegedExceptionAction;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
-import java.util.stream.Collectors;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -254,6 +219,41 @@ import org.apache.ratis.util.LifeCycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.management.ObjectName;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.UncheckedIOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.security.PrivilegedExceptionAction;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
+
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_TRASH_INTERVAL_DEFAULT;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_TRASH_INTERVAL_KEY;
 import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_BLOCK_TOKEN_ENABLED;
@@ -330,7 +330,7 @@ import static org.apache.hadoop.ozone.om.s3.S3SecretStoreConfigurationKeys.S3_SE
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerInterServiceProtocolProtos.OzoneManagerInterService;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OzoneManagerService;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.PrepareStatusResponse.PrepareStatus;
-import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.generateLimitedRaftGroupId;
+import static org.apache.hadoop.ozone.util.OzoneRaftGroupIdGenerator.generateLimitedRaftGroupId;
 import static org.apache.hadoop.security.UserGroupInformation.getCurrentUser;
 import static org.apache.hadoop.util.ExitUtil.terminate;
 import static org.apache.ozone.graph.PrintableGraph.GraphType.FILE_NAME;
@@ -741,7 +741,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     }
     try {
       RaftGroup raftGroup = initBucketResult.getRaftGroup();
-      omRatisServer.addBucketGroup(raftGroup);
+      omRatisServer.addBucketRaftGroup(raftGroup);
       peerNodesMap.entrySet().stream().filter(entry -> !entry.getKey().equals(omRatisServer.getId()))
           .forEach(stringOMNodeDetailsEntry -> {
             RaftPeer raftPeer = RaftPeer.newBuilder()
@@ -765,6 +765,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
         throw new RuntimeException(e);
       }
     }
+    raftClientProvider = RatisHelper.newRaftClient(configuration);
   }
 
   public InitBucketResult initBucketRaftGroupAndStateMachine(String bucketName) {
@@ -788,12 +789,12 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     return new InitBucketResult(true, bucketRaftGroup);
   }
 
-  public Map<RaftGroupId, RaftGroup> getOmRaftGroups() {
-    return omRaftGroups;
-  }
-
   public Map<RaftGroupId, StateMachine> getStateMachines() {
     return omStateMachines;
+  }
+
+  public Map<RaftGroupId, RaftGroup> getOmRaftGroups() {
+    return omRaftGroups;
   }
 
   public boolean isStopped() {
@@ -4187,8 +4188,8 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
    */
   public boolean isLeaderReady() {
     final OzoneManagerRatisServer ratisServer = omRatisServer;
-    return !isRatisEnabled
-                  || (
+    return !isRatisEnabled ||
+           (
                ratisServer != null
                && ratisServer.checkLeaderStatus(ratisServer.getCurrentRaftGroupId()) == LEADER_AND_READY
            );
@@ -4217,6 +4218,17 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     default: throw new IllegalStateException(
         "Unknown Ratis Server state: " + raftServerStatus);
     }
+  }
+
+  /**
+   * Checks Om Raft group the leader status.  Does nothing if this OM is leader and is ready.
+   * @throws OMLeaderNotReadyException  if leader, but not ready
+   * @throws OMNotLeaderException       if not leader
+   */
+  public void checkOmLeaderStatus() throws OMNotLeaderException,
+          OMLeaderNotReadyException {
+    RaftGroupId raftGroupId = omRatisServer.getCurrentRaftGroupId();
+    checkLeaderStatus(raftGroupId);
   }
 
   /**
@@ -4962,18 +4974,17 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
   public void awaitDoubleBufferFlush() throws InterruptedException {
     if (isRatisEnabled()) {
       getOmRatisServer().getOmStateMachine().awaitDoubleBufferFlush();
-//      getStateMachines().entrySet().stream()
-////          .filter(it -> it.getKey() != getOmRatisServer().getOmStateMachine().getGroupId())
-//          .filter(it -> it instanceof BucketStateMachine)
-//          .map(it -> (BucketStateMachine) it)
-//          .parallel()
-//          .forEach(it -> {
-//            try {
-//              it.awaitDoubleBufferFlush();
-//            } catch (InterruptedException e) {
-//              throw new RuntimeException(e);
-//            }
-//          });
+      getStateMachines().entrySet().stream()
+          .filter(it -> it instanceof BucketStateMachine)
+          .map(it -> (BucketStateMachine) it)
+          .parallel()
+          .forEach(it -> {
+            try {
+              it.awaitDoubleBufferFlush();
+            } catch (InterruptedException e) {
+              throw new RuntimeException(e);
+            }
+          });
     } else {
       getOmServerProtocol().awaitDoubleBufferFlush();
     }

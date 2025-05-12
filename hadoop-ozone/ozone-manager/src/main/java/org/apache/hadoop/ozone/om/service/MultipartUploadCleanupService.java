@@ -205,8 +205,7 @@ public class MultipartUploadCleanupService extends BackgroundService {
     private void submitRequest(OMRequest omRequest) {
       try {
         if (isRatisEnabled()) {
-          OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, clientId, runCount.get(),
-              ozoneManager.getOMServiceId());
+          OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, clientId, runCount.get());
         } else {
           ozoneManager.getOmServerProtocol().submitRequest(null, omRequest);
         }

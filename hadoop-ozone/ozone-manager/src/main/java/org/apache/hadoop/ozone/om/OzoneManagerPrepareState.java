@@ -90,7 +90,7 @@ public final class OzoneManagerPrepareState {
    *
    * Turning on the prepare gate flag will enable a gate in the
    * {@link OzoneManagerStateMachine#preAppendTransaction} (called on leader
-   * OM only) and {@link OzoneManagerRatisServer#submitRequest}
+   * OM only) and {@link OzoneManagerRatisServer#submitWriteRequest}
    * (called on all OMs) that block write requests from reaching the OM and
    * fail them with error responses to the client.
    */

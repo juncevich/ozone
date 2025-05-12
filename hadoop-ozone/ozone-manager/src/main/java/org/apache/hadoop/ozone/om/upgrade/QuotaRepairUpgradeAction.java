@@ -22,11 +22,9 @@ package org.apache.hadoop.ozone.om.upgrade;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.service.QuotaRepairTask;
-import org.apache.ratis.protocol.RaftGroupId;
 
 import static org.apache.hadoop.ozone.om.upgrade.OMLayoutFeature.QUOTA;
 import static org.apache.hadoop.ozone.upgrade.LayoutFeature.UpgradeActionType.ON_FIRST_UPGRADE_START;
-import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.generateRaftGroupId;
 
 /**
  * Quota repair for usages action to be triggered during first upgrade.
@@ -40,8 +38,7 @@ public class QuotaRepairUpgradeAction implements OmUpgradeAction {
         OMConfigKeys.OZONE_OM_UPGRADE_QUOTA_RECALCULATE_ENABLE,
         OMConfigKeys.OZONE_OM_UPGRADE_QUOTA_RECALCULATE_ENABLE_DEFAULT);
     if (enabled) {
-      RaftGroupId raftGroupId = generateRaftGroupId(arg.getOMServiceId());
-      arg.checkLeaderStatus(raftGroupId);
+      arg.checkOmLeaderStatus();
       QuotaRepairTask quotaRepairTask = new QuotaRepairTask(
           arg.getMetadataManager());
       quotaRepairTask.repair();

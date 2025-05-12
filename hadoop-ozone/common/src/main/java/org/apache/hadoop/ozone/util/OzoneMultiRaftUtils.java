@@ -1,53 +1,19 @@
 package org.apache.hadoop.ozone.util;
 
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.ratis.protocol.RaftGroupId;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MULTI_RAFT_ENABLED;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MULTI_RAFT_ENABLED_DEFAULT;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MULTI_RAFT_BUCKET_ENABLED;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MULTI_RAFT_BUCKET_ENABLED_DEFAULT;
 
 /**
  * Utility class used by OzoneManager HA.
  */
 public final class OzoneMultiRaftUtils {
-  private static final Logger LOG =
-          LoggerFactory.getLogger(OzoneMultiRaftUtils.class);
 
-  //TODO Maybe it needs change map to cache
-  private static final  Map<String, RaftGroupId> GROUP_ID_MAP = new ConcurrentHashMap<>();
   private static final OzoneConfiguration CONF = new OzoneConfiguration();
 
   private OzoneMultiRaftUtils() {
-  }
-
-  public static RaftGroupId generateLimitedRaftGroupId(String raftGroupPlainStr) {
-    int maxRaftGroups = CONF.getInt(
-            OMConfigKeys.OZONE_OM_BUCKET_RAFT_GROUPS,
-            OMConfigKeys.OZONE_OM_BUCKET_RAFT_GROUPS_DEFAULT);
-    String groupNumber = String.valueOf(raftGroupPlainStr.hashCode() % maxRaftGroups);
-    return GROUP_ID_MAP.computeIfAbsent(groupNumber, (k) -> {
-      UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(groupNumber.getBytes(StandardCharsets.UTF_8));
-      LOG.trace("Generate bucket group id {}, group number {}, generated uuid {}",
-              raftGroupPlainStr, groupNumber, raftGroupIdFromOmServiceId);
-      return RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
-    });
-  }
-
-  public static RaftGroupId generateRaftGroupId(String raftGroupPlainStr) {
-    return GROUP_ID_MAP.computeIfAbsent(raftGroupPlainStr, (k) -> {
-      UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(raftGroupPlainStr.getBytes(StandardCharsets.UTF_8));
-      LOG.trace("Generate bucket group id {}, generated uuid {}", raftGroupPlainStr, raftGroupIdFromOmServiceId);
-      return RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
-    });
   }
 
   @SuppressWarnings("checkstyle:methodlength")
@@ -152,7 +118,7 @@ public final class OzoneMultiRaftUtils {
   }
 
   public static boolean isMultiRaftEnabled() {
-    return CONF.getBoolean(OZONE_OM_MULTI_RAFT_ENABLED,
-            OZONE_OM_MULTI_RAFT_ENABLED_DEFAULT);
+    return CONF.getBoolean(OZONE_OM_MULTI_RAFT_BUCKET_ENABLED,
+            OZONE_OM_MULTI_RAFT_BUCKET_ENABLED_DEFAULT);
   }
 }

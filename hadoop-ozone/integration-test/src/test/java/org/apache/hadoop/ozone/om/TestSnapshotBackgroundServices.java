@@ -598,10 +598,7 @@ public class TestSnapshotBackgroundServices {
 
     GenericTestUtils.waitFor(() -> {
       try {
-        UUID raftGroupIdFromOmServiceId = UUID.nameUUIDFromBytes(
-            leaderOM.getOMServiceId().getBytes(StandardCharsets.UTF_8));
-        RaftGroupId raftGroupId = RaftGroupId.valueOf(raftGroupIdFromOmServiceId);
-        followerOM.checkLeaderStatus(raftGroupId);
+        followerOM.checkOmLeaderStatus();
         return true;
       } catch (OMNotLeaderException | OMLeaderNotReadyException e) {
         return false;
