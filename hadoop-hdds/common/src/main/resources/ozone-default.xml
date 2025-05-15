@@ -4372,4 +4372,20 @@
       Can't been changed after cluster initialization.
     </description>
   </property>
+  <property>
+    <name>ozone.om.multi.raft.bucket.cache.id.lifetime</name>
+    <value>60s</value>
+    <tag>OZONE, OM</tag>
+    <description>
+      Multi Raft groups id cache lifetime.
+    </description>
+  </property>
+  <property>
+    <name>ozone.om.multi.raft.bucket.cache.id.max.size</name>
+    <value>4</value>
+    <tag>OZONE, OM</tag>
+    <description>
+      Multi Raft groups id cache max size.
+    </description>
+  </property>
 </configuration>

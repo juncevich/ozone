@@ -613,4 +613,12 @@ public final class OMConfigKeys {
   public static final String OZONE_OM_MULTI_RAFT_BUCKET_ENABLED =
       "ozone.om.multi.raft.bucket.enabled";
   public static final boolean OZONE_OM_MULTI_RAFT_BUCKET_ENABLED_DEFAULT = false;
+
+  public static final String OZONE_OM_MULTI_RAFT_BUCKET_CACHE_ID_LIFETIME =
+      "ozone.om.multi.raft.bucket.cache.id.lifetime";
+  public static final String OZONE_OM_MULTI_RAFT_BUCKET_CACHE_ID_LIFETIME_DEFAULT = "60s";
+
+  public static final String OZONE_OM_MULTI_RAFT_BUCKET_CACHE_ID_MAX_SIZE =
+      "ozone.om.multi.raft.bucket.cache.id.max.size";
+  public static final long OZONE_OM_MULTI_RAFT_BUCKET_CACHE_ID_MAX_SIZE_DEFAULT = 4;
 }
