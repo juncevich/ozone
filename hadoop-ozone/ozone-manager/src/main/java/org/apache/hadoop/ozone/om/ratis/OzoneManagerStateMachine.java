@@ -117,6 +117,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
 
   public OzoneManagerStateMachine(OzoneManagerRatisServer ratisServer,
       RaftGroupId raftGroupId, boolean isTracingEnabled) throws IOException {
+    this.raftGroupId = raftGroupId;
     this.omRatisServer = ratisServer;
     this.isTracingEnabled = isTracingEnabled;
     this.ozoneManager = omRatisServer.getOzoneManager();
@@ -139,7 +140,6 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
     this.installSnapshotExecutor =
         HadoopExecutors.newSingleThreadExecutor(installSnapshotThreadFactory);
     this.metrics = OzoneManagerStateMachineMetrics.create();
-    this.raftGroupId = raftGroupId;
   }
 
   /**

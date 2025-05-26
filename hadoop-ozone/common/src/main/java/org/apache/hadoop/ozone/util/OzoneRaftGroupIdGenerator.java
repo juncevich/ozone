@@ -46,8 +46,9 @@ public final class OzoneRaftGroupIdGenerator {
     int maxRaftGroups = CONF.getInt(
             org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MULTI_RAFT_BUCKET_GROUPS,
             org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MULTI_RAFT_BUCKET_GROUPS_DEFAULT);
-    String groupNumber = String.valueOf(raftGroupPlainStr.hashCode() % maxRaftGroups);
-    return getId(groupNumber);
+    int groupNumber = Math.abs(raftGroupPlainStr.hashCode() % maxRaftGroups);
+    String stringGroupNumber = String.valueOf(groupNumber);
+    return getId(stringGroupNumber);
   }
 
   public static RaftGroupId generateRaftGroupId(String raftGroupPlainStr) {
