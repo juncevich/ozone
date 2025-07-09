@@ -38,6 +38,7 @@ import java.util.UUID;
 
 import static org.apache.hadoop.ozone.om.request.OMRequestTestUtils.addBucketToDB;
 
+
 /**
  * Tests the OM Response when open keys are deleted.
  */
@@ -172,7 +173,7 @@ public class TestOMOpenKeysDeleteResponse extends TestOMKeyResponse {
         .build();
 
     OMOpenKeysDeleteResponse response = new OMOpenKeysDeleteResponse(omResponse,
-        keysToDelete, true, getBucketLayout());
+        keysToDelete, true, getBucketLayout(), ozoneManager.isMultiRaftEnabled(), 0);
 
     // Operations are only added to the batch by this method when status is OK.
     response.checkAndUpdateDB(omMetadataManager, batchOperation);

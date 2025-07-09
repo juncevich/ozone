@@ -115,6 +115,7 @@ public abstract class OMClientRequest implements RequestAuditor {
     return omRequest;
   }
   private String writeBucketName;
+  private String writeVolumeName;
   /**
    * Performs any request specific failure handling during request
    * submission. An example of this would be an undo of any steps
@@ -580,5 +581,13 @@ public abstract class OMClientRequest implements RequestAuditor {
 
   public void setWriteReqBucketName(String bucketName) {
     this.writeBucketName = bucketName;
+  }
+
+  public String getWriteReqVolumeName() {
+    return writeVolumeName;
+  }
+
+  public void setWriteReqVolumeName(String volumeName) {
+    this.writeVolumeName = volumeName;
   }
 }

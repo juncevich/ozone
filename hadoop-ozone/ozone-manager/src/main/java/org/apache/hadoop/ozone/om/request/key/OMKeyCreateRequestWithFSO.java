@@ -57,6 +57,7 @@ import static org.apache.hadoop.ozone.om.request.file.OMFileRequest.OMDirectoryR
 import static org.apache.hadoop.ozone.om.request.file.OMFileRequest.OMDirectoryResult.FILE_EXISTS_IN_GIVENPATH;
 import static org.apache.hadoop.ozone.om.request.file.OMFileRequest.getParentId;
 
+
 /**
  * Handles CreateKey request layout version1.
  */
@@ -166,7 +167,7 @@ public class OMKeyCreateRequestWithFSO extends OMKeyCreateRequest {
               getFileEncryptionInfo(keyArgs), ozoneManager.getPrefixManager(),
               bucketInfo, pathInfoFSO, trxnLogIndex,
               pathInfoFSO.getLeafNodeObjectId(),
-              ozoneManager.isRatisEnabled(), repConfig);
+              ozoneManager.isRatisEnabled(), repConfig, ozoneManager.isMultiRaftEnabled(), ozoneManager.getCurrentMultiRaftTerm());
 
       long openVersion = omFileInfo.getLatestVersionLocations().getVersion();
       long clientID = createKeyRequest.getClientID();

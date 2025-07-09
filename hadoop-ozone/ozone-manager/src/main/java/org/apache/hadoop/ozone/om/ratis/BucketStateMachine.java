@@ -37,6 +37,7 @@ import org.apache.ratis.util.LifeCycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -113,7 +114,7 @@ public class BucketStateMachine extends BaseStateMachine {
 
     String leaderNodeId = RaftPeerId.valueOf(roleInfoProto.getFollowerInfo()
         .getLeaderInfo().getId().getId()).toString();
-    LOG.info("Received install snapshot notification from OM leader: {} with " +
+    LOG.error("Received install snapshot notification from OM leader: {} with " +
         "term index: {}", leaderNodeId, firstTermIndexInLog);
 
     return CompletableFuture.supplyAsync(
@@ -422,7 +423,7 @@ public class BucketStateMachine extends BaseStateMachine {
   @Override
   public SnapshotInfo getLatestSnapshot() {
     final SnapshotInfo snapshotInfo = ozoneManager.getTransactionInfo(currentRaftGroupId).toSnapshotInfo();
-    LOG.debug("Latest Snapshot Info {} - {}", currentRaftGroupId, snapshotInfo);
+//    LOG.debug("Latest Snapshot Info {} - {}", currentRaftGroupId, snapshotInfo);
     return snapshotInfo;
   }
 
@@ -488,17 +489,17 @@ public class BucketStateMachine extends BaseStateMachine {
     // This is done, as we have a check in Ratis for not throwing
     // LeaderNotReadyException, it checks stateMachineIndex >= raftLog
     // nextIndex (placeHolderIndex).
-    LOG.trace("Load snapshot info from db");
+    LOG.info("Load snapshot info from db");
     TransactionInfo transactionInfo = TransactionInfo.readTransactionInfo(
             ozoneManager.getMetadataManager(), currentRaftGroupId.toString()
     );
-    LOG.trace("Found transaction info {} for group {}", transactionInfo, currentRaftGroupId);
+    LOG.info("Found transaction info {} for group {}", transactionInfo, currentRaftGroupId);
     if (transactionInfo != null) {
       final TermIndex ti = transactionInfo.getTermIndex();
       setLastAppliedTermIndex(ti);
       ozoneManager.setTransactionInfo(currentRaftGroupId, transactionInfo);
     }
-    LOG.trace("LastAppliedIndex is set from TransactionInfo from OM DB as {}",
+    LOG.info("LastAppliedIndex is set from TransactionInfo from OM DB as {}",
             getLastAppliedTermIndex());
   }
 
@@ -537,15 +538,27 @@ public class BucketStateMachine extends BaseStateMachine {
   }
 
   @Override
+  public void notifyGroupRemove() {
+    LOG.error("Start removing group {}", currentRaftGroupId);
+    ozoneManager.getStateMachines().remove(currentRaftGroupId);
+    ozoneManager.getOmRaftGroups().remove(currentRaftGroupId);
+    try {
+      LOG.error("Deleting transaction for group {}", currentRaftGroupId);
+      TransactionInfo.deleteTransactionInfo(
+              ozoneManager.getMetadataManager(), currentRaftGroupId.toString()
+      );
+    } catch (IOException e) {
+      LOG.error("Error deleting transaction for group {}", currentRaftGroupId);
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Override
   public void close() throws IOException {
     // OM should be shutdown as the StateMachine has shutdown.
     LOG.info("StateMachine has shutdown. Shutdown OzoneManager if not " +
             "already shutdown.");
-    if (!ozoneManager.isStopped()) {
-      ozoneManager.shutDown("OM state machine is shutdown by Ratis server");
-    } else {
-      stop();
-    }
+    stop();
   }
 
   public void stop() {

@@ -71,12 +71,18 @@ public final class TransactionInfo {
     term = Long.parseLong(tInfo[0]);
     transactionIndex = Long.parseLong(tInfo[1]);
   }
+
+  private TransactionInfo(long currentTerm, long transactionIndex) {
+    this.term = currentTerm;
+    this.transactionIndex = transactionIndex;
+  }
+
   public static TransactionInfo valueOf(long currentTerm, long transactionIndex) {
-    return valueOf(TermIndex.valueOf(currentTerm, transactionIndex));
+    return new TransactionInfo(currentTerm, transactionIndex);
   }
 
   public static TransactionInfo valueOf(TermIndex termIndex) {
-    return new TransactionInfo(termIndex.getTerm() + TRANSACTION_INFO_SPLIT_KEY + termIndex.getIndex());
+    return new TransactionInfo(termIndex.getTerm(), termIndex.getIndex());
   }
 
   public boolean isDefault() {
@@ -183,6 +189,11 @@ public final class TransactionInfo {
     return metadataManager.getTransactionInfoTable().get(TRANSACTION_INFO_KEY + raftGroupId);
   }
 
+  public static void deleteTransactionInfo(
+          DBStoreHAManager metadataManager, String raftGroupId) throws IOException {
+    metadataManager.getTransactionInfoTable().delete(TRANSACTION_INFO_KEY + raftGroupId);
+  }
+
   public SnapshotInfo toSnapshotInfo() {
     return new RatisSnapshotInfo(term, transactionIndex);
   }
@@ -208,7 +219,7 @@ public final class TransactionInfo {
     }
 
     public TransactionInfo build() {
-      return new TransactionInfo(currentTerm + TRANSACTION_INFO_SPLIT_KEY + transactionIndex);
+      return new TransactionInfo(currentTerm, transactionIndex);
     }
   }
 }

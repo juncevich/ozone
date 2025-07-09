@@ -226,7 +226,21 @@ public class MiniOzoneHAClusterImpl extends MiniOzoneClusterImpl {
     }
     omhaService.inactiveServices().forEachRemaining(omhaService::activate);
     for (OzoneManager ozoneManager : omhaService.getServices()) {
+      long start = System.currentTimeMillis();
       ozoneManager.restart();
+      long finished = System.currentTimeMillis();
+      LOG.error("Finished restart {}", finished - start);
+    }
+  }
+
+
+  public void startOzoneManager() throws IOException {
+    for (OzoneManager ozoneManager : omhaService.getActiveServices()) {
+      stopOM(ozoneManager);
+    }
+    omhaService.inactiveServices().forEachRemaining(omhaService::activate);
+    for (OzoneManager ozoneManager : omhaService.getServices()) {
+      ozoneManager.start();
     }
   }
 

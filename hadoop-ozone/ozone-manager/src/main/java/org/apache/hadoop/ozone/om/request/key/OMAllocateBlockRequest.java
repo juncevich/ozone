@@ -66,6 +66,7 @@ import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
 
+
 /**
  * Handles allocate block request.
  */
@@ -233,7 +234,8 @@ public class OMAllocateBlockRequest extends OMKeyRequest {
       openKeyInfo.setModificationTime(keyArgs.getModificationTime());
 
       // Set the UpdateID to current transactionLogIndex
-      openKeyInfo.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled());
+      openKeyInfo.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled(),ozoneManager.isMultiRaftEnabled(),
+              ozoneManager.getCurrentMultiRaftTerm());
 
       // Add to cache.
       omMetadataManager.getOpenKeyTable(getBucketLayout()).addCacheEntry(

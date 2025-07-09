@@ -45,6 +45,7 @@ import java.util.Map;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
 
+
 /**
  * Handle set times request for bucket for prefix layout.
  */
@@ -79,7 +80,11 @@ public class OMKeySetTimesRequestWithFSO extends OMKeySetTimesRequest {
     Result result = null;
     try {
       volume = getVolumeName();
-      bucket = getWriteReqBucketName();
+       if (getWriteReqBucketName() != null) {
+         bucket = getWriteReqBucketName();
+       } else {
+         bucket = getBucketName();
+       }
       key = getKeyName();
 
       // check Acl
@@ -107,7 +112,8 @@ public class OMKeySetTimesRequestWithFSO extends OMKeySetTimesRequest {
       boolean isDirectory = keyStatus.isDirectory();
       operationResult = true;
       apply(omKeyInfo);
-      omKeyInfo.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled());
+      omKeyInfo.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled(),ozoneManager.isMultiRaftEnabled(),
+              ozoneManager.getCurrentMultiRaftTerm());
 
       // update cache.
       if (isDirectory) {

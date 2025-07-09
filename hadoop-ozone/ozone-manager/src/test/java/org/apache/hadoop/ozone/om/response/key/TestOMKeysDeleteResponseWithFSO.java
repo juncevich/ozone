@@ -44,6 +44,7 @@ import java.util.List;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.OK;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.DeleteKeys;
 
+
 /**
  * Class to test OMKeysDeleteResponse with FSO bucket layout.
  */
@@ -109,7 +110,7 @@ public class TestOMKeysDeleteResponseWithFSO
       OmBucketInfo omBucketInfo) {
     return new OMKeysDeleteResponseWithFSO(
         omResponse, getOmKeyInfoList(), dirDeleteList, true, omBucketInfo,
-        volId);
+        volId, ozoneManager.isMultiRaftEnabled(), 0);
   }
 
   @Test

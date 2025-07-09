@@ -39,11 +39,11 @@ public class CpuMetrics implements MetricsSource {
 
   public static final String SOURCE = "JvmMetricsCpu";
 
-  private final OperatingSystemMXBean operatingSystemMXBean;
+//  private final OperatingSystemMXBean operatingSystemMXBean;
 
   public CpuMetrics() {
-    operatingSystemMXBean =
-        (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+//    operatingSystemMXBean =
+//        (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
   }
 
   public static void create() {
@@ -57,15 +57,15 @@ public class CpuMetrics implements MetricsSource {
   @Override
   public void getMetrics(MetricsCollector collector, boolean all) {
     MetricsRecordBuilder builder = collector.addRecord(SOURCE);
-    builder.addGauge(Interns.info("jvmLoad",
-                "JVM CPU Load"),
-            operatingSystemMXBean.getProcessCpuLoad())
-        .addGauge(Interns.info("systemLoad",
-                "System CPU Load"),
-            operatingSystemMXBean.getSystemCpuLoad())
-        .addGauge(Interns.info("availableProcessors",
-                "Available processors"),
-            operatingSystemMXBean.getAvailableProcessors());
+//    builder.addGauge(Interns.info("jvmLoad",
+//                "JVM CPU Load"),
+//            operatingSystemMXBean.getProcessCpuLoad())
+//        .addGauge(Interns.info("systemLoad",
+//                "System CPU Load"),
+//            operatingSystemMXBean.getSystemCpuLoad())
+//        .addGauge(Interns.info("availableProcessors",
+//                "Available processors"),
+//            operatingSystemMXBean.getAvailableProcessors());
   }
 
 }

@@ -37,6 +37,7 @@ import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.OK;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.DeleteKeys;
 
+
 /**
  * Class to test OMKeysDeleteResponse.
  */
@@ -103,7 +104,7 @@ public class TestOMKeysDeleteResponse extends TestOMKeyResponse {
   protected OMClientResponse getOmKeysDeleteResponse(OMResponse omResponse,
       OmBucketInfo omBucketInfo) {
     return new OMKeysDeleteResponse(
-        omResponse, omKeyInfoList, true, omBucketInfo);
+        omResponse, omKeyInfoList, true, omBucketInfo, ozoneManager.isMultiRaftEnabled(), 0);
   }
 
   @Test

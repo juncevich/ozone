@@ -63,6 +63,7 @@ import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.USER_LOC
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 import static org.apache.hadoop.ozone.om.upgrade.OMLayoutFeature.MULTITENANCY_SCHEMA;
 
+
 /*
   Ratis execution flow for OMTenantCreate
 
@@ -287,7 +288,8 @@ public class OMTenantCreateRequest extends OMVolumeRequest {
         omVolumeArgs.setObjectID(
             ozoneManager.getObjectIdFromTxId(transactionLogIndex));
         omVolumeArgs.setUpdateID(transactionLogIndex,
-            ozoneManager.isRatisEnabled());
+            ozoneManager.isRatisEnabled(),ozoneManager.isMultiRaftEnabled(),
+                ozoneManager.getCurrentMultiRaftTerm());
 
         omVolumeArgs.incRefCount();
         // Remove this check when vol ref count is also used by other features

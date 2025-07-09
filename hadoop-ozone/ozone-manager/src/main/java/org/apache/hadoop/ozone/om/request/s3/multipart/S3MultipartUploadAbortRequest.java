@@ -165,7 +165,8 @@ public class S3MultipartUploadAbortRequest extends OMKeyRequest {
 
       multipartKeyInfo = omMetadataManager.getMultipartInfoTable()
           .get(multipartKey);
-      multipartKeyInfo.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled());
+      multipartKeyInfo.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled(),
+              ozoneManager.isMultiRaftEnabled(), ozoneManager.getCurrentMultiRaftTerm());
 
       // When abort uploaded key, we need to subtract the PartKey length from
       // the volume usedBytes.
@@ -246,7 +247,7 @@ public class S3MultipartUploadAbortRequest extends OMKeyRequest {
         omResponse.setAbortMultiPartUploadResponse(
             MultipartUploadAbortResponse.newBuilder()).build(), multipartKey,
         multipartOpenKey, multipartKeyInfo, ozoneManager.isRatisEnabled(),
-        omBucketInfo.copyObject(), getBucketLayout());
+        omBucketInfo.copyObject(), getBucketLayout(), ozoneManager.isMultiRaftEnabled(), ozoneManager.getCurrentMultiRaftTerm());
     return omClientResponse;
   }
 

@@ -57,6 +57,7 @@ import org.apache.hadoop.util.Time;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.USER_LOCK;
 
+
 /**
  * Handles volume create request.
  */
@@ -126,7 +127,8 @@ public class OMVolumeCreateRequest extends OMVolumeRequest {
       omVolumeArgs.setObjectID(
           ozoneManager.getObjectIdFromTxId(transactionLogIndex));
       omVolumeArgs.setUpdateID(transactionLogIndex,
-          ozoneManager.isRatisEnabled());
+          ozoneManager.isRatisEnabled(),ozoneManager.isMultiRaftEnabled(),
+              ozoneManager.getCurrentMultiRaftTerm());
 
 
       auditMap = omVolumeArgs.toAuditMap();

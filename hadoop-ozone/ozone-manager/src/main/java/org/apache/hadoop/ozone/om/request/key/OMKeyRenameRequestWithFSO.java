@@ -60,6 +60,7 @@ import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.RENAME_OPEN_FILE;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
 
+
 /**
  * Handles rename key request - prefix layout.
  */
@@ -285,7 +286,8 @@ public class OMKeyRenameRequestWithFSO extends OMKeyRenameRequest {
     String bucketKey = metadataMgr.getBucketKey(
         fromKeyValue.getVolumeName(), fromKeyValue.getBucketName());
 
-    fromKeyValue.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled());
+    fromKeyValue.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled(),ozoneManager.isMultiRaftEnabled(),
+            ozoneManager.getCurrentMultiRaftTerm());
     // Set toFileName
     fromKeyValue.setKeyName(toKeyFileName);
     fromKeyValue.setFileName(toKeyFileName);

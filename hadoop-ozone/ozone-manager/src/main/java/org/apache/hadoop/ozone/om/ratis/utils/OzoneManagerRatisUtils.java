@@ -45,6 +45,8 @@ import org.apache.hadoop.ozone.om.request.bucket.acl.OMBucketAddAclRequest;
 import org.apache.hadoop.ozone.om.request.bucket.acl.OMBucketRemoveAclRequest;
 import org.apache.hadoop.ozone.om.request.bucket.acl.OMBucketSetAclRequest;
 import org.apache.hadoop.ozone.om.request.file.OMRecoverLeaseRequest;
+import org.apache.hadoop.ozone.om.request.group.OMCreateRaftGroupsRequest;
+import org.apache.hadoop.ozone.om.request.group.OMRemoveRaftGroupsRequest;
 import org.apache.hadoop.ozone.om.request.key.OMDirectoriesPurgeRequestWithFSO;
 import org.apache.hadoop.ozone.om.request.key.OMKeyPurgeRequest;
 import org.apache.hadoop.ozone.om.request.key.OMKeyRequest;
@@ -232,6 +234,10 @@ public final class OzoneManagerRatisUtils {
       return new OMSnapshotPurgeRequest(omRequest);
     case SetSnapshotProperty:
       return new OMSnapshotSetPropertyRequest(omRequest);
+    case CreateBucketRaftGroups:
+      return new OMCreateRaftGroupsRequest(omRequest);
+    case RemoveBucketRaftGroups:
+      return new OMRemoveRaftGroupsRequest(omRequest);
     case DeleteOpenKeys:
       BucketLayout bktLayout = BucketLayout.DEFAULT;
       if (omRequest.getDeleteOpenKeysRequest().hasBucketLayout()) {
@@ -340,6 +346,7 @@ public final class OzoneManagerRatisUtils {
         volumeName, bucketName, omRequest, ozoneManager.getMetadataManager());
     if (!bucketName.isEmpty()) {
       request.setWriteReqBucketName(bucketName);
+      request.setWriteReqVolumeName(volumeName);
     }
     return request;
   }
@@ -497,13 +504,20 @@ public final class OzoneManagerRatisUtils {
     }
   }
 
-  public static void checkLeaderStatus(RaftGroupId raftGroupId, OzoneManager ozoneManager)
+  public static void checkLeaderStatus(String volumeName, String bucketName, OzoneManager ozoneManager)
       throws ServiceException {
-    LOG.trace("Check leader status for {}", raftGroupId);
+      RaftGroupId ratisGroupId = ozoneManager.ratisGroupName(volumeName, bucketName);
+
+      LOG.error("Check leader status for {} - {} - {} - {}",
+              ratisGroupId,
+              ozoneManager.getOmRatisGroupManager().getBucketRatisGroups(),
+              ozoneManager.getOmRaftGroups(),
+              ozoneManager.getOmRatisServer().getServer().getGroupIds()
+      );
     try {
-      ozoneManager.checkLeaderStatus(raftGroupId);
+      ozoneManager.checkLeaderStatus(ratisGroupId);
     } catch (OMNotLeaderException | OMLeaderNotReadyException e) {
-      LOG.trace("{} For group {}", e.getMessage(), raftGroupId);
+      LOG.error("{} For group {}", e.getMessage(), ratisGroupId);
       throw new ServiceException(e);
     }
   }
@@ -519,18 +533,18 @@ public final class OzoneManagerRatisUtils {
     return null;
   }
 
-  public static OzoneManagerProtocolProtos.OMResponse submitRequest(
-      OzoneManager om, OMRequest omRequest, ClientId clientId, long callId, String raftGroupToHandleRequest)
-      throws ServiceException {
-    LOG.trace("Submit request in Ratis Utils 2 {}", omRequest.getCmdType());
-    return om.getOmRatisServer().submitRequest(omRequest, clientId, callId, raftGroupToHandleRequest);
-  }
+//  public static OzoneManagerProtocolProtos.OMResponse submitRequest(
+//      OzoneManager om, OMRequest omRequest, ClientId clientId, long callId, String raftGroupToHandleRequest)
+//      throws ServiceException {
+//    LOG.trace("Submit request in Ratis Utils 2 {}", omRequest.getCmdType());
+//    return om.getOmRatisServer().submitRequest(omRequest, clientId, callId, raftGroupToHandleRequest);
+//  }
 
   public static OzoneManagerProtocolProtos.OMResponse submitWriteRequest(
-      OzoneManager om, OMRequest omRequest, ClientId clientId, long callId, String bucketName)
+      OzoneManager om, OMRequest omRequest, ClientId clientId, long callId, String volumeName, String bucketName)
       throws ServiceException {
     LOG.trace("Submit write request {}", omRequest.getCmdType());
-    return om.getOmRatisServer().submitWriteRequest(omRequest, clientId, callId, bucketName);
+    return om.getOmRatisServer().submitWriteRequest(omRequest, clientId, callId, volumeName, bucketName);
   }
 
   public static OzoneManagerProtocolProtos.OMResponse submitRequest(

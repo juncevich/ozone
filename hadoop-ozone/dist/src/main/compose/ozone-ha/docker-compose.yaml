@@ -14,12 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-version: "3.8"
-
 # reusable fragments (see https://docs.docker.com/compose/compose-file/#extension-fields)
 x-common-config:
   &common-config
-  image: ${OZONE_RUNNER_IMAGE}:${OZONE_RUNNER_VERSION}
+  #  image: ${OZONE_RUNNER_IMAGE}:${OZONE_RUNNER_VERSION}
+  build:
+    context: .
+    args:
+      - OZONE_RUNNER_IMAGE
+      - OZONE_RUNNER_VERSION
+  #  dockerfile: ../../../Dockerfile
   volumes:
     - ../..:/opt/hadoop
   env_file:
@@ -39,7 +43,11 @@ services:
       <<: *replication
     command: ["ozone","datanode"]
   om1:
-    <<: *common-config
+    build:
+      context: .
+      args:
+        - OZONE_RUNNER_IMAGE
+        - OZONE_RUNNER_VERSION
     environment:
       WAITFOR: scm3:9894
       ENSURE_OM_INITIALIZED: /data/metadata/om/current/VERSION
@@ -47,10 +55,20 @@ services:
     ports:
       - 9874:9874
       - 9862
+      - 1099
     hostname: om1
-    command: ["ozone","om"]
+    env_file:
+      - docker-config
+    volumes:
+      - ${OZONE_VOLUME}/om1:/data
+      - ../..:/opt/hadoop
+    command: sh -c "sudo /usr/sbin/sshd -E /tmp/sshd.log && /opt/hadoop/bin/ozone om"
   om2:
-    <<: *common-config
+    build:
+      context: .
+      args:
+        - OZONE_RUNNER_IMAGE
+        - OZONE_RUNNER_VERSION
     environment:
       WAITFOR: scm3:9894
       ENSURE_OM_INITIALIZED: /data/metadata/om/current/VERSION
@@ -58,10 +76,20 @@ services:
     ports:
       - 9874
       - 9862
+      - 1099
     hostname: om2
-    command: ["ozone","om"]
+    env_file:
+      - docker-config
+    volumes:
+      - ${OZONE_VOLUME}/om2:/data
+      - ../..:/opt/hadoop
+    command: sh -c "sudo /usr/sbin/sshd -E /tmp/sshd.log && /opt/hadoop/bin/ozone om"
   om3:
-    <<: *common-config
+    build:
+      context: .
+      args:
+        - OZONE_RUNNER_IMAGE
+        - OZONE_RUNNER_VERSION
     environment:
       WAITFOR: scm3:9894
       ENSURE_OM_INITIALIZED: /data/metadata/om/current/VERSION
@@ -69,17 +97,26 @@ services:
     ports:
       - 9874
       - 9862
+      - 1099
     hostname: om3
-    command: ["ozone","om"]
+    env_file:
+      - docker-config
+    volumes:
+      - ${OZONE_VOLUME}/om3:/data
+      - ../..:/opt/hadoop
+    command: sh -c "sudo /usr/sbin/sshd -E /tmp/sshd.log && /opt/hadoop/bin/ozone om"
   scm1:
     <<: *common-config
     ports:
       - 9876:9876
+      - 1099
     environment:
       ENSURE_SCM_INITIALIZED: /data/metadata/scm/current/VERSION
       OZONE-SITE.XML_hdds.scm.safemode.min.datanode: ${OZONE_SAFEMODE_MIN_DATANODES:-1}
       <<: *replication
-    command: ["ozone","scm"]
+    #    command: ["ozone","scm"]
+    command: sh -c "sudo /usr/sbin/sshd -E /tmp/sshd.log && /opt/hadoop/bin/ozone scm"
+  #    command: sh -c "/opt/hadoop/bin/ozone scm"
   scm2:
     <<: *common-config
     ports:
@@ -89,7 +126,7 @@ services:
       ENSURE_SCM_BOOTSTRAPPED: /data/metadata/scm/current/VERSION
       OZONE-SITE.XML_hdds.scm.safemode.min.datanode: ${OZONE_SAFEMODE_MIN_DATANODES:-1}
       <<: *replication
-    command: ["ozone","scm"]
+    command: sh -c "sudo /usr/sbin/sshd -E /tmp/sshd.log && /opt/hadoop/bin/ozone scm"
   scm3:
     <<: *common-config
     ports:
@@ -99,7 +136,7 @@ services:
       ENSURE_SCM_BOOTSTRAPPED: /data/metadata/scm/current/VERSION
       OZONE-SITE.XML_hdds.scm.safemode.min.datanode: ${OZONE_SAFEMODE_MIN_DATANODES:-1}
       <<: *replication
-    command: ["ozone","scm"]
+    command: sh -c "sudo /usr/sbin/sshd -E /tmp/sshd.log && /opt/hadoop/bin/ozone scm"
   httpfs:
     <<: *common-config
     environment:

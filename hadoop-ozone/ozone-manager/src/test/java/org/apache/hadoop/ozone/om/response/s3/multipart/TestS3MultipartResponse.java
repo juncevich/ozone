@@ -30,6 +30,7 @@ import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
+import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
@@ -59,6 +60,8 @@ import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OmMetadataManagerImpl;
 import org.apache.hadoop.hdds.utils.db.BatchOperation;
 
+
+
 /**
  * Base test class for S3 MPU response.
  */
@@ -71,6 +74,7 @@ public class TestS3MultipartResponse {
 
   protected OMMetadataManager omMetadataManager;
   protected BatchOperation batchOperation;
+  protected OzoneManager ozoneManager;
 
   @BeforeEach
   public void setup() throws Exception {
@@ -79,6 +83,7 @@ public class TestS3MultipartResponse {
         folder.toAbsolutePath().toString());
     omMetadataManager = new OmMetadataManagerImpl(ozoneConfiguration, null);
     batchOperation = omMetadataManager.getStore().initBatchOperation();
+    ozoneManager = OzoneManager.createOm(ozoneConfiguration);
   }
 
   @AfterEach
@@ -292,7 +297,7 @@ public class TestS3MultipartResponse {
     return new S3MultipartUploadCommitPartResponseWithFSO(omResponse,
         multipartKey, openKey, multipartKeyInfo, oldPartKeyInfo,
         openPartKeyInfoToBeDeleted, isRatisEnabled, omBucketInfo,
-        getBucketLayout());
+        getBucketLayout(), ozoneManager.isMultiRaftEnabled(), 0);
   }
 
   @SuppressWarnings("checkstyle:ParameterNumber")
@@ -343,7 +348,7 @@ public class TestS3MultipartResponse {
       OMResponse omResponse) {
     return new S3MultipartUploadAbortResponse(omResponse, multipartKey,
         multipartOpenKey, omMultipartKeyInfo, true, omBucketInfo,
-        getBucketLayout());
+        getBucketLayout(), ozoneManager.isMultiRaftEnabled(), 0);
   }
 
   public BucketLayout getBucketLayout() {

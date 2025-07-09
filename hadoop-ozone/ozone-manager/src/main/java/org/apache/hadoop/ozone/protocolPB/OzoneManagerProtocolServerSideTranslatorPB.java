@@ -60,9 +60,6 @@ import static org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer.RaftServe
 import static org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer.RaftServerStatus.NOT_LEADER;
 import static org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils.createClientRequest;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.PrepareStatus;
-import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.isMultiRaftEnabled;
-import static org.apache.hadoop.ozone.util.OzoneRaftGroupIdGenerator.generateLimitedRaftGroupId;
-import static org.apache.hadoop.ozone.util.OzoneRaftGroupIdGenerator.generateRaftGroupId;
 import static org.apache.hadoop.util.MetricUtil.captureLatencyNs;
 
 /**
@@ -222,25 +219,20 @@ public class OzoneManagerProtocolServerSideTranslatorPB implements
       try {
         omClientRequest = createClientRequest(request, ozoneManager);
         // check retry cache
-        RaftGroupId raftGroupId;
+        String volumeName = omClientRequest.getWriteReqVolumeName();
         String bucketName = omClientRequest.getWriteReqBucketName();
-        LOG.trace("Continue internal processing request {}, bucket {}", request.getCmdType(), bucketName);
-        if (bucketName != null && isMultiRaftEnabled()) {
-          raftGroupId = generateLimitedRaftGroupId(bucketName);
-        } else {
-          raftGroupId = generateRaftGroupId(ozoneManager.getOMServiceId());
-        }
+
+        LOG.error("Continue internal processing request {}, bucket {}", request.getCmdType(), bucketName);
         // To validate credentials we have already verified leader status.
         // This will skip of checking leader status again if request has S3Auth.
         if (!s3Auth) {
-          OzoneManagerRatisUtils.checkLeaderStatus(raftGroupId, ozoneManager);
+          OzoneManagerRatisUtils.checkLeaderStatus(volumeName, bucketName, ozoneManager);
         }
         // TODO: Note: Due to HDDS-6055, createClientRequest() could now
         //  return null, which triggered the findbugs warning.
         //  Added the assertion.
         assert (omClientRequest != null);
-        OMClientRequest finalOmClientRequest = omClientRequest;
-        requestToSubmit = preExecute(finalOmClientRequest);
+        requestToSubmit = preExecute(omClientRequest);
         this.lastRequestToSubmit = requestToSubmit;
       } catch (IOException ex) {
         if (omClientRequest != null) {
@@ -250,9 +242,10 @@ public class OzoneManagerProtocolServerSideTranslatorPB implements
       }
 
       final OMResponse response;
-      if (omClientRequest.getWriteReqBucketName() != null && isMultiRaftEnabled()) {
+      if (omClientRequest.getWriteReqBucketName() != null && ozoneManager.isMultiRaftEnabled()) {
         response = omRatisServer.submitBucketWriteRequest(
             requestToSubmit,
+            omClientRequest.getWriteReqVolumeName(),
             omClientRequest.getWriteReqBucketName()
         );
       } else {

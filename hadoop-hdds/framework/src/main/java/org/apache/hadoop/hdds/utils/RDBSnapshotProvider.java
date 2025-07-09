@@ -107,7 +107,7 @@ public abstract class RDBSnapshotProvider implements Closeable {
    */
   public DBCheckpoint downloadDBSnapshotFromLeader(String leaderNodeID)
       throws IOException {
-    LOG.info("Prepare to download the snapshot from leader OM {} and " +
+    LOG.error("Prepare to download the snapshot from leader OM {} and " +
         "reloading state from the snapshot.", leaderNodeID);
     checkLeaderConsistency(leaderNodeID);
 
@@ -115,7 +115,7 @@ public abstract class RDBSnapshotProvider implements Closeable {
       String snapshotFileName = getSnapshotFileName(leaderNodeID);
       File targetFile = new File(snapshotDir, snapshotFileName);
       downloadSnapshot(leaderNodeID, targetFile);
-      LOG.info(
+      LOG.error(
           "Successfully download the latest snapshot {} from leader OM: {}",
           targetFile, leaderNodeID);
 

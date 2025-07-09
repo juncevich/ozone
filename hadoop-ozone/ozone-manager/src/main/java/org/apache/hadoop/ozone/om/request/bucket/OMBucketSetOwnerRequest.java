@@ -49,6 +49,7 @@ import java.nio.file.InvalidPathException;
 
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
 
+
 /**
  * Handle set owner request for bucket.
  */
@@ -155,7 +156,8 @@ public class OMBucketSetOwnerRequest extends OMClientRequest {
           setBucketPropertyRequest.getModificationTime());
       // Set the updateID to current transaction log index
       omBucketInfo.setUpdateID(transactionLogIndex,
-          ozoneManager.isRatisEnabled());
+          ozoneManager.isRatisEnabled(),ozoneManager.isMultiRaftEnabled(),
+              ozoneManager.getCurrentMultiRaftTerm());
 
       // Update table cache.
       omMetadataManager.getBucketTable().addCacheEntry(

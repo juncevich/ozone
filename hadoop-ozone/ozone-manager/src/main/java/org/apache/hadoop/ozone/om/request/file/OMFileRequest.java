@@ -419,12 +419,14 @@ public final class OMFileRequest {
     final Table<String, OmKeyInfo> table
         = omMetadataManager.getKeyTable(layout);
     for (OmKeyInfo parentInfo : parentInfoList) {
+      LOG.error("Add cache entry for parent {} idx {}", parentInfo, index);
       table.addCacheEntry(omMetadataManager.getOzoneKey(
           volumeName, bucketName, parentInfo.getKeyName()),
           parentInfo, index);
     }
 
     if (keyInfo != null) {
+      LOG.error("1Add cache entry for key info {} idx {}", keyInfo, index);
       table.addCacheEntry(omMetadataManager.getOzoneKey(
           volumeName, bucketName, keyInfo.getKeyName()),
           keyInfo, index);
@@ -533,7 +535,7 @@ public final class OMFileRequest {
     String dbOpenFileKey = omMetadataMgr.getOpenFileName(volumeId, bucketId,
             omFileInfo.getParentObjectID(), omFileInfo.getFileName(),
             openKeySessionID);
-
+    LOG.error("2Add cache entry for key info {} update id {}", omFileInfo, omFileInfo.getUpdateID());
     omMetadataMgr.getOpenKeyTable(BucketLayout.FILE_SYSTEM_OPTIMIZED)
         .putWithBatch(batchOp, dbOpenFileKey, omFileInfo);
   }
@@ -556,7 +558,7 @@ public final class OMFileRequest {
     String multipartFileKey = omMetadataMgr.getMultipartKey(volumeId,
             bucketId, omFileInfo.getParentObjectID(),
             omFileInfo.getFileName(), uploadID);
-
+    LOG.error("3Add cache entry for key info {} update id {}", omFileInfo, omFileInfo.getUpdateID());
     omMetadataMgr.getOpenKeyTable(BucketLayout.FILE_SYSTEM_OPTIMIZED)
         .putWithBatch(batchOp, multipartFileKey, omFileInfo);
 
@@ -578,7 +580,7 @@ public final class OMFileRequest {
 
     String dbFileKey = omMetadataMgr.getOzonePathKey(volumeId, bucketId,
             omFileInfo.getParentObjectID(), omFileInfo.getFileName());
-
+    LOG.error("4Add cache entry for key info {} update id {}", omFileInfo, omFileInfo.getUpdateID());
     omMetadataMgr.getKeyTable(BucketLayout.FILE_SYSTEM_OPTIMIZED)
         .putWithBatch(batchOp, dbFileKey, omFileInfo);
     return dbFileKey;

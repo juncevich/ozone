@@ -109,6 +109,7 @@ import org.apache.hadoop.util.Time;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.when;
@@ -1018,7 +1019,7 @@ public final class OMRequestTestUtils {
    * @return the deletedKey name
    */
   public static String deleteKey(String ozoneKey,
-      OMMetadataManager omMetadataManager, long trxnLogIndex)
+      OMMetadataManager omMetadataManager, long trxnLogIndex, boolean isMultiRaftEnabled)
       throws IOException {
     // Retrieve the keyInfo
     OmKeyInfo omKeyInfo =
@@ -1028,7 +1029,7 @@ public final class OMRequestTestUtils {
     omMetadataManager.getKeyTable(getDefaultBucketLayout()).delete(ozoneKey);
 
     RepeatedOmKeyInfo repeatedOmKeyInfo = OmUtils.prepareKeyForDelete(
-        omKeyInfo, trxnLogIndex, true);
+        omKeyInfo, trxnLogIndex, true, isMultiRaftEnabled, 0);
 
     omMetadataManager.getDeletedTable().put(ozoneKey, repeatedOmKeyInfo);
 

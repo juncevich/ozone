@@ -154,7 +154,8 @@ public class OMVolumeSetOwnerRequest extends OMVolumeRequest {
       // Set owner with new owner name.
       omVolumeArgs.setOwnerName(newOwner);
       omVolumeArgs.setUpdateID(transactionLogIndex,
-          ozoneManager.isRatisEnabled());
+          ozoneManager.isRatisEnabled(),ozoneManager.isMultiRaftEnabled(),
+              ozoneManager.getCurrentMultiRaftTerm());
 
       // Update modificationTime.
       omVolumeArgs.setModificationTime(

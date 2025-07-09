@@ -51,8 +51,9 @@ public class OMKeyDeleteResponseWithFSO extends OMKeyDeleteResponse {
   public OMKeyDeleteResponseWithFSO(@Nonnull OMResponse omResponse,
       @Nonnull String keyName, @Nonnull OmKeyInfo omKeyInfo,
       boolean isRatisEnabled, @Nonnull OmBucketInfo omBucketInfo,
-      @Nonnull boolean isDeleteDirectory, @Nonnull long volumeId) {
-    super(omResponse, omKeyInfo, isRatisEnabled, omBucketInfo);
+      @Nonnull boolean isDeleteDirectory, @Nonnull long volumeId, boolean multiRaftEnabled,
+                                    long currentMultiRaftTerm) {
+    super(omResponse, omKeyInfo, isRatisEnabled, omBucketInfo, multiRaftEnabled, currentMultiRaftTerm);
     this.keyName = keyName;
     this.isDeleteDirectory = isDeleteDirectory;
     this.volumeId = volumeId;

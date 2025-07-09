@@ -147,7 +147,8 @@ public class OMDirectoriesPurgeRequestWithFSO extends OMKeyRequest {
         getOmRequest());
     OMClientResponse omClientResponse = new OMDirectoriesPurgeResponseWithFSO(
         omResponse.build(), purgeRequests, ozoneManager.isRatisEnabled(),
-            getBucketLayout(), volBucketInfoMap, fromSnapshotInfo);
+            getBucketLayout(), volBucketInfoMap, fromSnapshotInfo, ozoneManager.isMultiRaftEnabled(),
+            ozoneManager.getCurrentMultiRaftTerm());
 
     return omClientResponse;
   }

@@ -26,6 +26,8 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.util.Time;
 import org.junit.jupiter.api.Assertions;
 
+
+
 /**
  * Tests OMKeyDeleteResponse - prefix layout.
  */
@@ -36,7 +38,7 @@ public class TestOMKeyDeleteResponseWithFSO extends TestOMKeyDeleteResponse {
       OzoneManagerProtocolProtos.OMResponse omResponse) throws Exception {
     return new OMKeyDeleteResponseWithFSO(omResponse, omKeyInfo.getKeyName(),
         omKeyInfo, true, getOmBucketInfo(), false,
-        omMetadataManager.getVolumeId(volumeName));
+        omMetadataManager.getVolumeId(volumeName), ozoneManager.isMultiRaftEnabled(), 0);
   }
 
   @Override

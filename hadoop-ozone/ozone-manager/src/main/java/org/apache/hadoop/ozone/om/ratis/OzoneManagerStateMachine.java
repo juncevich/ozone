@@ -80,7 +80,6 @@ import org.slf4j.LoggerFactory;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.INTERNAL_ERROR;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.METADATA_ERROR;
 import static org.apache.hadoop.ozone.OzoneConsts.TRANSACTION_INFO_KEY;
-import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.isMultiRaftEnabled;
 
 /**
  * The OM StateMachine is the state machine for OM Ratis server. It is
@@ -117,6 +116,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
 
   public OzoneManagerStateMachine(OzoneManagerRatisServer ratisServer,
       RaftGroupId raftGroupId, boolean isTracingEnabled) throws IOException {
+    this.raftGroupId = raftGroupId;
     this.omRatisServer = ratisServer;
     this.isTracingEnabled = isTracingEnabled;
     this.ozoneManager = omRatisServer.getOzoneManager();
@@ -139,7 +139,6 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
     this.installSnapshotExecutor =
         HadoopExecutors.newSingleThreadExecutor(installSnapshotThreadFactory);
     this.metrics = OzoneManagerStateMachineMetrics.create();
-    this.raftGroupId = raftGroupId;
   }
 
   /**
@@ -340,6 +339,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
           : OMRatisHelper.convertByteStringToOMRequest(
           trx.getStateMachineLogEntry().getLogData());
       long trxLogIndex = trx.getLogEntry().getIndex();
+      LOG.trace("Apply transaction {} {} - {}", request.getCmdType(), raftGroupId, trxLogIndex);
       // In the current approach we have one single global thread executor.
       // with single thread. Right now this is being done for correctness, as
       // applyTransaction will be run on multiple OM's we want to execute the
@@ -596,11 +596,12 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
           handler.handleWriteRequest(request, trxLogIndex);
       OMLockDetails omLockDetails = omClientResponse.getOmLockDetails();
       OMResponse omResponse = omClientResponse.getOMResponse();
-      if (request.hasCreateBucketRequest() && isMultiRaftEnabled()) {
-        String bucketName = request.getCreateBucketRequest().getBucketInfo().getBucketName();
-        LOG.trace("Creating raft group while runCommand {}", bucketName);
-        ozoneManager.createRaftGroupForBucket(bucketName);
-      }
+//      if (request.hasCreateBucketRequest() && ozoneManager.isMultiRaftEnabled()) {
+//        String volumeName = request.getCreateBucketRequest().getBucketInfo().getVolumeName();
+//        String bucketName = request.getCreateBucketRequest().getBucketInfo().getBucketName();
+//        LOG.trace("Creating raft group while runCommand {}", bucketName);
+//        ozoneManager.createRaftGroupForBucket(volumeName, bucketName);
+//      }
       if (omLockDetails != null) {
         return omResponse.toBuilder()
             .setOmLockDetails(omLockDetails.toProtobufBuilder()).build();

@@ -49,6 +49,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRespo
 
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
 
+
 /**
  * Handle add SetTimes request for key.
  */
@@ -215,7 +216,8 @@ public class OMKeySetTimesRequest extends OMKeyRequest {
 
       operationResult = true;
       apply(omKeyInfo);
-      omKeyInfo.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled());
+      omKeyInfo.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled(),ozoneManager.isMultiRaftEnabled(),
+              ozoneManager.getCurrentMultiRaftTerm());
 
       // update cache.
       omMetadataManager.getKeyTable(getBucketLayout())
