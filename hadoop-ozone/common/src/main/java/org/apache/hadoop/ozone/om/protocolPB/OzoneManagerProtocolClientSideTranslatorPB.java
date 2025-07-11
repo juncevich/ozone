@@ -117,6 +117,7 @@ import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.DIRECTORY_ALREADY_EXISTS;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.OK;
 import static org.apache.hadoop.ozone.util.OzoneMultiRaftUtils.getBucketName;
+import static org.apache.hadoop.util.ProtobufUtils.toProtobuf;
 
 /**
  * The client side implementation of OzoneManagerProtocol.
@@ -2461,6 +2462,20 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
     OMRequest omRequest = createOMRequest(Type.RemoveBucketRaftGroups)
             .setRemoveBucketRaftGroupsRequest(removeGroupsRequest).build();
     return handleError(submitRequest(omRequest)).getRemoveBucketRaftGroupsResponse();
+  }
+
+  @Override
+  public UpdateBucketRaftGroupIdResponse updateRatisGroupIdInfo(String key, UUID groupId, Integer count)
+          throws IOException {
+    UpdateBucketRaftGroupIdRequest updateGroupIdRequest =  UpdateBucketRaftGroupIdRequest.newBuilder()
+            .setKey(key)
+            .setGroupId(toProtobuf(groupId))
+            .setCounter(count)
+            .build();
+    OMRequest omRequest = createOMRequest(Type.UpdateBucketRaftGroupId)
+            .setUpdateBucketRaftGroupIdRequest(updateGroupIdRequest)
+            .build();
+    return handleError(submitRequest(omRequest)).getUpdateBucketRaftGroupIdResponse();
   }
 
   private SafeMode toProtoBuf(SafeModeAction action) {

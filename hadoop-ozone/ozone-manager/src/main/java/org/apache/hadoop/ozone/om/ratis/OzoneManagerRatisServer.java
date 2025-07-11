@@ -529,7 +529,7 @@ public final class OzoneManagerRatisServer {
   private RaftClientReply submitRequestToRatisImpl(
       RaftClientRequest raftClientRequest) throws ServiceException {
     try {
-      LOG.info("Submit to Ratis impl {}", raftClientRequest.toString());
+      LOG.error("Submit to Ratis impl {}", raftClientRequest.toString());
       return server.submitClientRequestAsync(raftClientRequest)
           .get();
     } catch (ExecutionException | IOException ex) {

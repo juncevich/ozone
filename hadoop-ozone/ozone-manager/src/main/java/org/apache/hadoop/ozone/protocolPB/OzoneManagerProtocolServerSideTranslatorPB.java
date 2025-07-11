@@ -249,6 +249,7 @@ public class OzoneManagerProtocolServerSideTranslatorPB implements
             omClientRequest.getWriteReqBucketName()
         );
       } else {
+        LOG.error("Continue internal processing request {}", request.getCmdType());
         response = omRatisServer.submitRequest(requestToSubmit);
       }
 

@@ -1020,7 +1020,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
 
     bucketManager = new BucketManagerImpl(this, metadataManager);
 
-    omRatisGroupManager = new OmRatisGroupManager(configuration, isMultiRaftEnabled, getOMServiceId(), metadataManager);
+    omRatisGroupManager = new OmRatisGroupManager(configuration, isMultiRaftEnabled, getOMServiceId(), metadataManager, this);
 
     Class<? extends S3SecretStoreProvider> storeProviderClass =
         configuration.getClass(
@@ -2299,7 +2299,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
               OZONE_OM_MULTI_RAFT_BUCKET_ENABLED,
               OZONE_OM_MULTI_RAFT_BUCKET_ENABLED_DEFAULT
       );
-      omRatisGroupManager = new OmRatisGroupManager(configuration, isMultiRaftEnabled, getOMServiceId(), metadataManager);
+      omRatisGroupManager = new OmRatisGroupManager(configuration, isMultiRaftEnabled, getOMServiceId(), metadataManager, this);
       initBucketRaftGroups();
     }
   }
@@ -4697,6 +4697,19 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
       throw omRatisServer.newOMNotLeaderException(raftGroupId);
     default: throw new IllegalStateException(
         "Unknown Ratis Server state: " + raftServerStatus);
+    }
+  }
+
+  public boolean isLeaderStatus(RaftGroupId raftGroupId) throws OMNotLeaderException,
+          OMLeaderNotReadyException {
+    RaftPeerId raftPeerId = omRatisServer.getRaftPeerId();
+
+    OzoneManagerRatisServer.RaftServerStatus raftServerStatus =
+            omRatisServer.checkLeaderStatus(raftGroupId);
+
+    switch (raftServerStatus) {
+      case LEADER_AND_READY: return true;
+      default: return false;
     }
   }
 

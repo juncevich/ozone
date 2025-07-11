@@ -9,6 +9,7 @@ import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.om.response.group.OMCreateRaftGroupsResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RemoveBucketRaftGroupsRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +32,7 @@ public class OMRemoveRaftGroupsRequest extends OMClientRequest {
     public OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager, long transactionLogIndex) {
 
         OMRequest omRequest = getOmRequest();
-        OzoneManagerProtocolProtos.RemoveBucketRaftGroupsRequest removeBucketRaftGroupsRequest = omRequest.getRemoveBucketRaftGroupsRequest();
+        RemoveBucketRaftGroupsRequest removeBucketRaftGroupsRequest = omRequest.getRemoveBucketRaftGroupsRequest();
         LOG.error("Start removing RAFT groups in {}: {}",
                 ozoneManager.getOMNodeId(),
                 removeBucketRaftGroupsRequest.getGroupIdsList().stream().map(HddsUtils::fromProtobuf).collect(Collectors.toList())

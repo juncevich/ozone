@@ -28,7 +28,7 @@ public class OMCreateRaftGroupsRequest extends OMClientRequest {
         CreateBucketRaftGroupsRequest createBucketRaftGroupsRequest = omRequest.getCreateBucketRaftGroupsRequest();
         createBucketRaftGroupsRequest.getGroupIdsList().forEach(groupId -> {
             ozoneManager.createRaftGroupForBucket(RaftGroupId.valueOf(HddsUtils.fromProtobuf(groupId)));
-//            ozoneManager.getOmRatisGroupManager().incrementRatisGroupCounter(HddsUtils.fromProtobuf(groupId));
+            ozoneManager.getOmRatisGroupManager().incrementRatisGroupCounter(HddsUtils.fromProtobuf(groupId));
         });
         final OzoneManagerProtocolProtos.OMResponse.Builder omResponse =
                 OmResponseUtil.getOMResponseBuilder(omRequest);

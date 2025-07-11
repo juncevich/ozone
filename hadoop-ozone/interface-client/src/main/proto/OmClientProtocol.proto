@@ -148,6 +148,7 @@ enum Type {
   GetSnapshotInfo = 130;
   CreateBucketRaftGroups = 131;
   RemoveBucketRaftGroups = 132;
+  UpdateBucketRaftGroupId = 133;
 }
 
 enum SafeMode {
@@ -285,6 +286,7 @@ message OMRequest {
   optional SnapshotInfoRequest              SnapshotInfoRequest            = 128;
   optional CreateBucketRaftGroupsRequest    CreateBucketRaftGroupsRequest         = 132;
   optional RemoveBucketRaftGroupsRequest    RemoveBucketRaftGroupsRequest         = 133;
+  optional UpdateBucketRaftGroupIdRequest   UpdateBucketRaftGroupIdRequest         = 134;
 }
 
 message OMResponse {
@@ -409,6 +411,7 @@ message OMResponse {
   optional OMLockDetailsProto                omLockDetails                 = 131;
   optional CreateBucketRaftGroupsResponse    CreateBucketRaftGroupsResponse = 132;
   optional RemoveBucketRaftGroupsResponse    RemoveBucketRaftGroupsResponse = 133;
+  optional UpdateBucketRaftGroupIdResponse   UpdateBucketRaftGroupIdResponse = 134;
 }
 
 enum Status {
@@ -2140,6 +2143,16 @@ message RemoveBucketRaftGroupsRequest {
 }
 message RemoveBucketRaftGroupsResponse {
 }
+
+message UpdateBucketRaftGroupIdRequest {
+  optional string key = 1;
+  optional hadoop.hdds.UUID groupId = 2;
+  optional uint32 counter = 3;
+}
+
+message UpdateBucketRaftGroupIdResponse {
+}
+
 /**
  The OM service that takes care of Ozone namespace.
 */

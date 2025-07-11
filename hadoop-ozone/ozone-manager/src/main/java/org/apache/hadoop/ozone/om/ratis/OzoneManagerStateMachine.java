@@ -590,7 +590,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
    * @throws ServiceException
    */
   private OMResponse runCommand(OMRequest request, long trxLogIndex) {
-    LOG.info("Run command {} - {}", request.getCmdType(), trxLogIndex);
+    LOG.error("Run command {} - {}", request.getCmdType(), trxLogIndex);
     try {
       OMClientResponse omClientResponse =
           handler.handleWriteRequest(request, trxLogIndex);
